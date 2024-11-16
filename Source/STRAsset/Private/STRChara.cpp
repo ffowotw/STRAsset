@@ -1322,6 +1322,12 @@ bool USTRChara::CheckInput(FString InInput)
 
         return m_inputButtons[result] == 3;
     }
+    else if (InInput.StartsWith("INPUT_ANY_"))
+    {
+        FString input = InInput.Mid(10);
+
+        return CheckDirection(input);
+    }
     else if (InInput.StartsWith("INPUT_NO_"))
     {
         FString input = InInput.Mid(9);
@@ -1359,12 +1365,6 @@ bool USTRChara::CheckInput(FString InInput)
                 return m_inputY != -1;
             }
         }
-    }
-    else if (InInput.StartsWith("INPUT_ANY_"))
-    {
-        FString input = InInput.Mid(10);
-
-        return CheckDirection(input);
     }
     else if (InInput.StartsWith("INPUT_CHARGE_"))
     {
