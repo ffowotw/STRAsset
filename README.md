@@ -15,7 +15,7 @@ STRAsset有著 `.trscript` 與 `.collision` 的腳本支援。
 
 `.trscript` 為本插件的角色／道具腳本的檔案類型，用於製作角色與道具。
 
-如需更詳細的資料，請至 
+如需更詳細的資料，請至 https://ffowotw.github.io/trscript/
 
 ## .collision
 
