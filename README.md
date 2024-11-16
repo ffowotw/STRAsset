@@ -23,9 +23,9 @@ STRAsset有著 `.trscript` 與 `.collision` 的腳本支援。
 
 ## Mesh Array 、 Anim Set 與 Anim Array
 
-`Mesh Array` 、 `Anim Set` 與 `Anim Array` 皆可在虛幻引擎4中的內容瀏覽器的選單內的 `STR Asset` 中可以創建。
+`MeshArray` 、 `AnimSet` 與 `AnimArray` 皆可在虛幻引擎4中的內容瀏覽器的選單內的 `STR Asset` 中可以創建。
 
 用途為以下幾點：
-- Mesh Array: 為一個Skeletal Mesh的陣列，將角色的拆分多個部分，以方便之後的顯示與隱藏。
-- Anim Set: 為每個部分的動畫，動畫的金鑰要與腳本中的名稱相同。
-- Anim Array: 為一個Anim Set陣列，將各個部分的Anim Set存入。
+- MeshArray: 為一個 Skeletal Mesh 的陣列，將角色的拆分多個部分，以方便之後的顯示與隱藏。
+- AnimSet: 為每個部分的動畫，動畫的金鑰要與腳本中的名稱相同。
+- AnimArray: 為一個 AnimSet 陣列，將各個部分的 AnimSet 存入。

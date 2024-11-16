@@ -2150,7 +2150,6 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     checkingKeys = TArray<FString> {
         "addMove",
         "endMove",
-        "registerMove",
         "moveType",
         "charaState",
         "moveInput",
@@ -2179,41 +2178,35 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
         }
         case 2:
         {
-            m_registeredMoves.Add(GetString(InValues[0]));
+            m_moves[m_editingMove].Type = GetEnum(InValues[0]);
 
             return true;
         }
         case 3:
         {
-            m_moves[m_editingMove].Type = GetEnum(InValues[0]);
+            m_moves[m_editingMove].CharaState = GetEnum(InValues[0]);
 
             return true;
         }
         case 4:
         {
-            m_moves[m_editingMove].CharaState = GetEnum(InValues[0]);
+            m_moves[m_editingMove].MoveInputs.Add(GetEnum(InValues[0]));
 
             return true;
         }
         case 5:
         {
-            m_moves[m_editingMove].MoveInputs.Add(GetEnum(InValues[0]));
+            m_moves[m_editingMove].MoveRequirement = GetEnum(InValues[0]);
 
             return true;
         }
         case 6:
         {
-            m_moves[m_editingMove].MoveRequirement = GetEnum(InValues[0]);
-
-            return true;
-        }
-        case 7:
-        {
             m_moves[m_editingMove].DisableMoveCanceling = GetBool(InValues[0]);
 
             return true;
         }
-        case 8:
+        case 7:
         {
             m_moves[m_editingMove].IsFollowupMove = GetBool(InValues[0]);
 

@@ -326,8 +326,6 @@ private:
     TArray<FString> m_moveKeys;
     UPROPERTY()
     TMap<FString, FSTRMove> m_moves;
-    UPROPERTY()
-    TArray<FString> m_registeredMoves;
 
     // Damage sprites
     UPROPERTY()
