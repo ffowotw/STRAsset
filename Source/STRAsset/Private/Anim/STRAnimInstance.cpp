@@ -2,12 +2,14 @@
 
 USTRAnimInstance::USTRAnimInstance()
 {
-    CurrentAnim = nullptr;
-    CurrentFrame = 0;
+    SpriteAnim = nullptr;
+    SpriteAnimValid = false;
+    SpriteAnimTime = 0;
 }
 
 void USTRAnimInstance::SetAnimAndFrame(class UAnimSequence* InAnim, int32 InFrame)
 {
-    CurrentAnim = InAnim;
-    CurrentFrame = InFrame;
+    SpriteAnim = InAnim;
+    SpriteAnimValid = InAnim != nullptr;
+    SpriteAnimTime = float(InFrame) / 60;
 }

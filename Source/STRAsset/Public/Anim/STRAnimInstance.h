@@ -13,10 +13,13 @@ public:
 
 public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    class UAnimSequence* CurrentAnim;
+    class UAnimSequence* SpriteAnim;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    int32 CurrentFrame;
+    bool SpriteAnimValid;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    float SpriteAnimTime;
 
     void SetAnimAndFrame(class UAnimSequence* InAnim, int32 InFrame);
 };

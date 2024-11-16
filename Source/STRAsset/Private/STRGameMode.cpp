@@ -201,8 +201,6 @@ int32 ASTRGameMode::AssignPlayer(ASTRPawn* playerPawn)
 
 void ASTRGameMode::PlayerInput(int32 InIndex, TArray<FKey> InKeyMappings, FKey InKey, bool InPressed)
 {
-    UE_LOG(LogTemp, Warning, TEXT("%i"), m_playerControllingChara.Contains(InIndex) ? 1 : 0);
-
     if (InIndex == -1 || !m_playerControllingChara.Contains(InIndex) || !InKeyMappings.Contains(InKey))
     {
         return;
