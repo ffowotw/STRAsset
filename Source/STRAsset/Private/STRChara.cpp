@@ -122,8 +122,6 @@ void USTRChara::Ticking()
     m_positionY += m_velocityY;
     m_velocityY -= m_gravity;
 
-    m_pushChecked = false;
-
     if (m_velocityX != 0)
     {
         TArray<USTRChara*> charaList = m_gameMode->GetCharaList();
@@ -221,6 +219,26 @@ void USTRChara::Ticking()
     }
 
     StateExecution();
+    
+    if (m_charaLayer == "P1")
+    {
+        if (m_scriptData->Subroutines.Contains(m_currentStateName))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CURRENT: %i >> MAX: %i"), m_stateExecutionIndex, m_scriptData->Subroutines[m_currentStateName].SubroutineValues.Num());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("%s"), *m_currentStateName);
+        }
+    }
+
+    if (m_stateExecutionCountdown <= 0)
+    {
+        // if (m_stateExecutionIndex + 1 >= m_scriptData->Subroutines[m_currentStateName].SubroutineValues.Num())
+        // {
+        //     ExitState();
+        // }
+    }
 }
 
 void USTRChara::ContinuousTicking()
@@ -283,7 +301,7 @@ void USTRChara::TickInputCheck()
             {
                 if (m_hitCharaList.Num() > 0)
                 {
-                    if (move.Type == "NORMAL" && !m_hitLinkOptions.Contains(m_moveKeys[i]))
+                    if (move.Type == "NORMAL" && !m_hitCancels.Contains(m_moveKeys[i]))
                     {
                         continue;
                     }
@@ -292,7 +310,7 @@ void USTRChara::TickInputCheck()
                 }
                 else
                 {
-                    if (!m_enableWhiffCancel || !m_whiffLinkOptions.Contains(m_moveKeys[i]))
+                    if (!m_enableWhiffCancel || !m_whiffCancels.Contains(m_moveKeys[i]))
                     {
                         continue;
                     }
@@ -304,7 +322,7 @@ void USTRChara::TickInputCheck()
 
         if (move.Type == "SPECIAL" && CheckIsFollowupMove(m_moveKeys[i]))
         {
-            if (!m_whiffLinkOptions.Contains(m_moveKeys[i]) || !m_hitLinkOptions.Contains(m_moveKeys[i]))
+            if (!m_whiffCancels.Contains(m_moveKeys[i]) || !m_hitCancels.Contains(m_moveKeys[i]))
             {
                 continue;
             }
@@ -944,9 +962,26 @@ void USTRChara::TickHitCheck()
 
     TArray<FSTRCollision> hitboxes = GetCollisions("HITBOX");
 
-    if (hitboxes.Num() <= 0)
+    if (m_isThrow)
     {
-        return;
+        hitboxes = {
+            {
+                "HIT",
+                m_throwRange / 2,
+                1,
+                m_throwRange,
+                1
+            }
+        };
+    }
+    else
+    {
+        hitboxes = GetCollisions("HITBOX");
+
+        if (hitboxes.Num() <= 0)
+        {
+            return;
+        }
     }
 
     for (USTRChara* chara : opponentCharaList)
@@ -954,6 +989,21 @@ void USTRChara::TickHitCheck()
         if (m_hitCharaList.Contains(chara))
         {
             continue;
+        }
+
+        if (m_isThrow)
+        {
+            if (chara->m_throwInvul != 0)
+            {
+                continue;
+            }
+        }
+        else
+        {
+            if (chara->m_strikeInvul != 0)
+            {
+                continue;
+            }
         }
 
         bool hit = false;
@@ -984,8 +1034,15 @@ void USTRChara::TickHitCheck()
                     }
 
                     m_gameMode->ApplyHitStop(hitStopFrame);
+                }
 
-                    // UE_LOG(LogTemp, Warning, TEXT("%i"), hitStopFrame);
+                if (m_executeOnHit != "")
+                {
+                    JumpToState(m_executeOnHit);
+                }
+                else
+                {
+                    // TODO: OnHit
                 }
 
                 break;
@@ -1436,8 +1493,8 @@ bool USTRChara::CheckInput(FString InInput)
             "63214",
             "236236",
             "214214",
-            "2363214",
-            "2141236"
+            "236214",
+            "214236"
         };
 
         if (!checkingKeys.Contains(input))
@@ -1538,19 +1595,19 @@ bool USTRChara::CheckInput(FString InInput)
 
                 break;
             }
-            case 10: // 2363214
+            case 10: // 236214
             {
-                inputMotions = TArray<uint8> { 2, 3, 6, 3, 2, 1, 4 };
+                inputMotions = TArray<uint8> { 2, 3, 6, 2, 1, 4 };
                 motionRequriments = TArray<bool> { true, false, true, false, true, false, true };
-                inputWindows = TArray<uint8> { 0, 10, 10, 10, 10, 10, 10 };
+                inputWindows = TArray<uint8> { 0, 10, 12, 10, 10, 10 };
 
                 break;
             }
-            case 11: // 2141236
+            case 11: // 214236
             {
-                inputMotions = TArray<uint8> { 2, 1, 4, 1, 2, 3, 6 };
+                inputMotions = TArray<uint8> { 2, 1, 4, 2, 3, 6 };
                 motionRequriments = TArray<bool> { true, false, true, false, true, false, true };
-                inputWindows = TArray<uint8> { 0, 10, 10, 10, 10, 10, 10 };
+                inputWindows = TArray<uint8> { 0, 10, 12, 10, 10, 10 };
 
                 break;
             }
@@ -1728,98 +1785,75 @@ bool USTRChara::MatchDirection(FString InDirection, int8 InHorizontal, int8 InVe
     
 void USTRChara::Execute(FString InExecutionHeader, TArray<FString> InValues)
 {
-    TArray<FString> checkingKeys;
-    int32 result;
-
     // Checking
-    checkingKeys = TArray<FString> {
-        "checkCurrentStateName",
-        "checkLastStateName",
-        "checkOpponentChara",
-        "checkInput"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "checkCurrentStateName")
     {
-        case 0:
-        {
-            m_storedVal["Tmp"] = CheckCurrentStateName(InValues[0]) ? 1 : 0;
+        m_storedVal["Tmp"] = CheckCurrentStateName(InValues[0]) ? 1 : 0;
 
-            return;
-        }
-        case 1:
-        {
-            m_storedVal["Tmp"] = CheckLastStateName(InValues[0]) ? 1 : 0;
+        return;
+    }
+    if (InExecutionHeader == "checkLastStateName")
+    {
+        m_storedVal["Tmp"] = CheckLastStateName(InValues[0]) ? 1 : 0;
 
-            return;
-        }
-        case 2:
-        {
-            return;
-        }
-        case 3:
-        {
-            m_storedVal["Tmp"] = CheckInput(GetString(InValues[0])) ? 1 : 0;
+        return;
+    }
+    if (InExecutionHeader == "checkOpponentChara")
+    {
+        // TODO: checkOpponentChara
 
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "checkInput")
+    {
+        m_storedVal["Tmp"] = CheckInput(GetString(InValues[0])) ? 1 : 0;
+
+        return;
     }
 
 
     // If Statement
-    checkingKeys = TArray<FString> {
-        "if",
-        "elseif",
-        "else",
-        "endif"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "if")
     {
-        case 0:
+        m_IfStatementOperated = false;
+        m_canExecute = false;
+
+        if (GetBool(InValues))
         {
-            m_IfStatementOperated = false;
-            m_canExecute = false;
-
-            if (GetBool(InValues))
-            {
-                m_IfStatementOperated = true;
-                m_canExecute = true;
-            }
-
-            return;
+            m_IfStatementOperated = true;
+            m_canExecute = true;
         }
-        case 1:
+
+        return;
+    }
+    if (InExecutionHeader == "elseif")
+    {
+        m_canExecute = false;
+
+        if (GetBool(InValues) && !m_IfStatementOperated)
         {
-            m_canExecute = false;
-
-            if (GetBool(InValues) && !m_IfStatementOperated)
-            {
-                m_IfStatementOperated = true;
-                m_canExecute = true;
-            }
-
-            return;
+            m_IfStatementOperated = true;
+            m_canExecute = true;
         }
-        case 2:
-        {
-            m_canExecute = false;
 
-            if (!m_IfStatementOperated)
-            {
-                m_canExecute = true;
-            }
+        return;
+    }
+    if (InExecutionHeader == "else")
+    {
+        m_canExecute = false;
 
-            return;
-        }
-        case 3:
+        if (!m_IfStatementOperated)
         {
             m_canExecute = true;
-
-            return;
         }
+
+        return;
+    }
+    if (InExecutionHeader == "endif")
+    {
+        m_canExecute = true;
+
+        return;
     }
 
 
@@ -1838,444 +1872,344 @@ void USTRChara::Execute(FString InExecutionHeader, TArray<FString> InValues)
         return;
     }
 
+    // Executions For Function
     if (FunctionExecutions(InExecutionHeader, InValues))
     {
         return;
     }
 
+    // Executions For State
     StateExecutions(InExecutionHeader, InValues);
 }
 
 bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> InValues)
 {
-    TArray<FString> checkingKeys;
-    int32 result;
-
     // Chara Details
-    checkingKeys = TArray<FString> {
-        "charaName",
-        "weight",
-        "defence",
-        "airJumpCount",
-        "airDashCount",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "charaName")
     {
-        case 0:
-        {
-            m_charaName = GetString(InValues[0]);
+        m_charaName = GetString(InValues[0]);
 
-            return true;
-        }
-        case 1:
-        {
-            m_weight = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "weight")
+    {
+        m_weight = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 2:
-        {
-            m_defence = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "defence")
+    {
+        m_defence = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_maxAirJumpCount = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airJumpCount")
+    {
+        m_airJumpCount = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 4:
-        {
-            m_maxAirDashCount = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashCount")
+    {
+        m_airDashCount = GetInt(InValues[0]);
 
-            return true;
-        }
+        return true;
     }
 
 
-    // Walk & Dash
-    checkingKeys = TArray<FString> {
-        "walkFSpeed",
-        "walkBSpeed",
-        "dashFInitSpeed",
-        "dashFAcceleration",
-        "dashFriction",
-        "dashBXSpeed",
-        "dashBYSpeed",
-        "dashBGravity",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Walk
+    if (InExecutionHeader == "walkFSpeed")
     {
-        case 0:
-        {
-            m_walkFSpeed = GetInt(InValues[0]);
-        
-            return true;
-        }
-        case 1:
-        {
-            m_walkBSpeed = GetInt(InValues[0]);
+        m_walkFSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 2:
-        {
-            m_dashFInitSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "walkBSpeed")
+    {
+        m_walkBSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_dashFAcceleration = GetInt(InValues[0]);
+        return true;
+    }
 
-            return true;
-        }
-        case 4:
-        {
-            m_dashFriction = GetInt(InValues[0]);
+    // Dash
+    if (InExecutionHeader == "dashFInitSpeed")
+    {
+        m_dashFInitSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 5:
-        {
-            m_dashBXSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "dashFAcceleration")
+    {
+        m_dashFAcceleration = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 6:
-        {
-            m_dashBYSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "dashFriction")
+    {
+        m_dashFriction = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 7:
-        {
-            m_dashBGravity = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "dashBXSpeed")
+    {
+        m_dashBXSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
+        return true;
+    }
+    if (InExecutionHeader == "dashBYSpeed")
+    {
+        m_dashBYSpeed = GetInt(InValues[0]);
+
+        return true;
+    }
+    if (InExecutionHeader == "dashBGravity")
+    {
+        m_dashBGravity = GetInt(InValues[0]);
+
+        return true;
     }
 
 
     // Jump
-    checkingKeys = TArray<FString> {
-        "jumpFXSpeed",
-        "jumpBXSpeed",
-        "jumpYSpeed",
-        "jumpGravity",
-        "highJumpFXSpeed",
-        "highJumpBXSpeed",
-        "highJumpYSpeed",
-        "highJumpGravity",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "jumpFXSpeed")
     {
-        case 0:
-        {
-            m_jumpFXSpeed = GetInt(InValues[0]);
-        
-            return true;
-        }
-        case 1:
-        {
-            m_jumpBXSpeed = GetInt(InValues[0]);
+        m_jumpFXSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 2:
-        {
-            m_jumpYSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "jumpBXSpeed")
+    {
+        m_jumpBXSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_jumpGravity = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "jumpYSpeed")
+    {
+        m_jumpYSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 4:
-        {
-            m_highJumpFXSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "jumpGravity")
+    {
+        m_jumpGravity = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 5:
-        {
-            m_highJumpBXSpeed = GetInt(InValues[0]);
+        return true;
+    }
 
-            return true;
-        }
-        case 6:
-        {
-            m_highJumpYSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 7:
-        {
-            m_highJumpGravity = GetInt(InValues[0]);
+    // High Jump
+    if (InExecutionHeader == "highJumpFXSpeed")
+    {
+        m_highJumpFXSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
+        return true;
+    }
+    if (InExecutionHeader == "highJumpBXSpeed")
+    {
+        m_highJumpBXSpeed = GetInt(InValues[0]);
+
+        return true;
+    }
+    if (InExecutionHeader == "highJumpYSpeed")
+    {
+        m_highJumpYSpeed = GetInt(InValues[0]);
+
+        return true;
+    }
+    if (InExecutionHeader == "highJumpGravity")
+    {
+        m_highJumpGravity = GetInt(InValues[0]);
+
+        return true;
     }
 
 
     // Air dash
-    checkingKeys = TArray<FString> {
-        "airDashMinHeight",
-        "airDashFTime",
-        "airDashBTime",
-        "airDashFSpeed",
-        "airDashBSpeed",
-        "airDashFNoAttackTime",
-        "airDashBNoAttackTime",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "airDashMinHeight")
     {
-        case 0:
-        {
-            m_airDashMinHeight = GetInt(InValues[0]);
-        
-            return true;
-        }
-        case 1:
-        {
-            m_airDashFTime = GetInt(InValues[0]);
+        m_airDashMinHeight = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 2:
-        {
-            m_airDashBTime = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashFTime")
+    {
+        m_airDashFTime = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_airDashFSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashBTime")
+    {
+        m_airDashBTime = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 4:
-        {
-            m_airDashBSpeed = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashFSpeed")
+    {
+        m_airDashFSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 5:
-        {
-            m_airDashFNoAttackTime = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashBSpeed")
+    {
+        m_airDashBSpeed = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 6:
-        {
-            m_airDashBNoAttackTime = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "airDashFNoAttackTime")
+    {
+        m_airDashFNoAttackTime = GetInt(InValues[0]);
 
-            return true;
-        }
+        return true;
+    }
+    if (InExecutionHeader == "airDashBNoAttackTime")
+    {
+        m_airDashBNoAttackTime = GetInt(InValues[0]);
+
+        return true;
     }
 
 
     // Push box
-    checkingKeys = TArray<FString> {
-        "pushboxWidthStand",
-        "pushboxHeightStand",
-        "pushboxWidthCrouch",
-        "pushboxHeightCrouch",
-        "pushboxWidthAir",
-        "pushboxHeightAir",
-        "pushboxHeightLowAir",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "pushboxWidthStand")
     {
-        case 0:
-        {
-            m_pushboxWidthStand = GetInt(InValues[0]);
-        
-            return true;
-        }
-        case 1:
-        {
-            m_pushboxHeightStand = GetInt(InValues[0]);
+        m_pushboxWidthStand = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 2:
-        {
-            m_pushboxWidthCrouch = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "pushboxHeightStand")
+    {
+        m_pushboxHeightStand = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_pushboxHeightCrouch = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "pushboxWidthCrouch")
+    {
+        m_pushboxWidthCrouch = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 4:
-        {
-            m_pushboxWidthAir = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "pushboxHeightCrouch")
+    {
+        m_pushboxHeightCrouch = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 5:
-        {
-            m_pushboxHeightAir = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "pushboxWidthAir")
+    {
+        m_pushboxWidthAir = GetInt(InValues[0]);
 
-            return true;
-        }
-        case 6:
-        {
-            m_pushboxHeightLowAir = GetInt(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "pushboxHeightAir")
+    {
+        m_pushboxHeightAir = GetInt(InValues[0]);
 
-            return true;
-        }
+        return true;
+    }
+    if (InExecutionHeader == "pushboxHeightLowAir")
+    {
+        m_pushboxHeightLowAir = GetInt(InValues[0]);
+
+        return true;
     }
 
 
     // Move
-    checkingKeys = TArray<FString> {
-        "addMove",
-        "endMove",
-        "moveType",
-        "charaState",
-        "moveInput",
-        "moveRequirement",
-        "disableMoveCanceling",
-        "isFollowupMove",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "addMove")
     {
-        case 0:
-        {
-            m_editingMove = GetString(InValues[0]);
+        m_editingMove = GetString(InValues[0]);
 
-            m_moveKeys.Add(m_editingMove);
-            m_moves.Add(m_editingMove, {});
-        
-            return true;
-        }
-        case 1:
-        {
-            m_editingMove = "";
+        m_moveKeys.Add(m_editingMove);
+        m_moves.Add(m_editingMove, {});
+    
+        return true;
+    }
+    if (InExecutionHeader == "endMove")
+    {
+        m_editingMove = "";
 
-            return true;
-        }
-        case 2:
-        {
-            m_moves[m_editingMove].Type = GetEnum(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "moveType")
+    {
+        m_moves[m_editingMove].Type = GetEnum(InValues[0]);
 
-            return true;
-        }
-        case 3:
-        {
-            m_moves[m_editingMove].CharaState = GetEnum(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "moveInput")
+    {
+        m_moves[m_editingMove].MoveInputs.Add(GetEnum(InValues[0]));
 
-            return true;
-        }
-        case 4:
-        {
-            m_moves[m_editingMove].MoveInputs.Add(GetEnum(InValues[0]));
+        return true;
+    }
+    if (InExecutionHeader == "moveRequirement")
+    {
+        m_moves[m_editingMove].MoveRequirement = GetEnum(InValues[0]);
 
-            return true;
-        }
-        case 5:
-        {
-            m_moves[m_editingMove].MoveRequirement = GetEnum(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "disableMoveCanceling")
+    {
+        m_moves[m_editingMove].DisableMoveCanceling = GetBool(InValues);
 
-            return true;
-        }
-        case 6:
-        {
-            m_moves[m_editingMove].DisableMoveCanceling = GetBool(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "isFollowupMove")
+    {
+        m_moves[m_editingMove].IsFollowupMove = GetBool(InValues);
 
-            return true;
-        }
-        case 7:
-        {
-            m_moves[m_editingMove].IsFollowupMove = GetBool(InValues[0]);
+        return true;
+    }
 
-            return true;
-        }
+
+    // Damage sprite
+    if (InExecutionHeader == "setDamageSprite")
+    {
+        m_damageSprites.Add(GetInt(InValues[0]), GetString(InValues[1]));
+
+        return true;
     }
 
 
     // Mesh set
-    checkingKeys = TArray<FString> {
-        "beginMeshSet",
-        "endMeshSet",
-        "addToMeshSet",
-        "resetDefaultMeshSet",
-        "changeDefaultMeshSet",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "beginMeshSet")
     {
-        case 0:
+        m_editingMeshSet = GetString(InValues[0]);
+        m_meshSets.Add(m_editingMeshSet, {});
+
+        return true;
+    }
+    if (InExecutionHeader == "endMeshSet")
+    {
+        m_editingMeshSet = "";
+
+        return true;
+    }
+    if (InExecutionHeader == "addToMeshSet")
+    {
+        FString value = GetString(InValues[0]);
+
+        if (!m_meshSets[m_editingMeshSet].Meshes.Contains(value))
         {
-            m_editingMeshSet = GetString(InValues[0]);
-            m_meshSets.Add(m_editingMeshSet, {});
-
-            return true;
+            m_meshSets[m_editingMeshSet].Meshes.Add(value);
         }
-        case 1:
-        {
-            m_editingMeshSet = "";
 
-            return true;
-        }
-        case 2:
-        {
-            FString value = GetString(InValues[0]);
+        return true;
+    }
+    if (InExecutionHeader == "resetDefaultMeshSet")
+    {
+        // TODO: resetDefaultMeshSet
 
-            if (!m_meshSets[m_editingMeshSet].Meshes.Contains(value))
-            {
-                m_meshSets[m_editingMeshSet].Meshes.Add(value);
-            }
-
-            return true;
-        }
-        case 3:
-        {
-            // resetDefaultMeshSet
-
-            return true;
-        }
-        case 4:
-        {
-            // changeDefaultMeshSet
-
-            return true;
-        }
+        return true;
+    }
+    if (InExecutionHeader == "changeDefaultMeshSet")
+    {
+        // TODO: changeDefaultMeshSet
+        
+        return true;
     }
 
     /*
-    // Damage sprite
-    else if (InExecutionHeader == "setDamageSprite")
-    {
-        m_damageSprites.Add(GetInt(InValues[0]), InValues[1]);
-    }
-    else if (InExecutionHeader == "setDamageSpriteEx")
-    {
-        m_damageSpritesEx.Add(InValues[0], InValues[1]);
-    }
-
     // Voice
     else if (InExecutionHeader == "setupVoice")
     {
@@ -2294,333 +2228,362 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
 
 void USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InValues)
 {
-    TArray<FString> checkingKeys;
-    int32 result;
-    
     // State Details
-    checkingKeys = TArray<FString> {
-        "jumpToState",
-        "exitState",
-        "callFunction",
-        "gotoLabel",
-        "gotoLabelIf",
-        "hit",
-        "recoveryState"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "jumpToState")
     {
-        case 0:
-        {
-            JumpToState(GetString(InValues[0]));
+        JumpToState(GetString(InValues[0]));
 
-            return;
-        }
-        case 1:
-        {
-            ExitState();
+        return;
+    }
+    if (InExecutionHeader == "exitState")
+    {
+        ExitState();
 
-            return;
-        }
-        case 2:
-        {
-            CallFunction(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "callFunction")
+    {
+        CallFunction(InValues[0]);
 
-            return;
+        return;
+    }
+    if (InExecutionHeader == "gotoLabel")
+    {
+        GotoLabel(GetString(InValues[0]));
+
+        return;
+    }
+    if (InExecutionHeader == "gotoLabelIf")
+    {
+        TArray<FString> modifiedValues;
+
+        for (int32 i = 1; i < InValues.Num(); i++)
+        {
+            modifiedValues.Add(InValues[i]);
         }
-        case 4:
+
+        if (GetBool(modifiedValues))
         {
             GotoLabel(GetString(InValues[0]));
-
-            return;
         }
-        case 5:
-        {
-            TArray<FString> modifiedValues;
 
-            for (int32 i = 1; i < InValues.Num(); i++)
-            {
-                modifiedValues.Add(InValues[i]);
-            }
-
-            if (GetBool(modifiedValues))
-            {
-                GotoLabel(GetString(InValues[0]));
-            }
-
-            return;
-        }
-        case 6:
-        {
-            m_hitCharaList.Empty();
-            m_charaStatement = "ACTIVE_STATE";
-
-            return;
-        }
-        case 7:
-        {
-            m_charaStatement = "RECOVERY_STATE";
-
-            return;
-        }
-    }
-
-
-    // Invul
-    checkingKeys = TArray<FString> {
-        "setStrikeInvul",
-        "setThrowInvul",
-        "strickInvulForTime",
-        "throwInvulForTime"
-        "setNoCollision"
-    };
-
-    switch(result)
-    {
-        case 0:
-        {
-            m_strikeInvul = GetBool(InValues) ? -1 : 0;
-
-            return;
-        }
-        case 1:
-        {
-            m_throwInvul = GetBool(InValues) ? -1 : 0;
-
-            return;
-        }
-        case 2:
-        {
-            m_strikeInvul = GetInt(InValues[0]);
-
-            return;
-        }
-        case 3:
-        {
-            m_throwInvul = GetInt(InValues[0]);
-
-            return;
-        }
-        case 4:
-        {
-            m_noCollision = GetBool(InValues);
-
-            return;
-        }
-    }
-
-    // Throw Details
-    checkingKeys = TArray<FString> {
-        "canGrab",
-        "throwRange",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
-    {
-        case 0:
-        {
-            m_canGrab = GetBool(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_throwRange = GetInt(InValues[0]);
-
-            return;
-        }
-    }
-
-
-    // Move Details
-    checkingKeys = TArray<FString> {
-        "damage",
-        "setProration",
-        "attackLevel",
-        "attackAngle",
-        "guardType",
-        "hitStop",
-        "disableHitStop",
-        "m_restoreAirJump",
-        "m_restoreAirDash",
-        "enableJumpCancel",
-        "enableSpecialCancel",
-        "addWhiffCancel",
-        "removeWhiffCancel",
-        "addHitCancel",
-        "removeHitCancel",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
-    {
-        case 0:
-        {
-            m_damage = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_proration = float(GetInt(InValues[0])) / 100;
-
-            return;
-        }
-        case 2:
-        {
-            m_attackLevel = GetInt(InValues[0]);
-
-            return;
-        }
-        case 3:
-        {
-            m_attackAngle = GetInt(InValues[0]);
-
-            return;
-        }
-        case 4:
-        {
-            m_guardType = GetEnum(InValues[0]);
-
-            return;
-        }
-        case 5:
-        {
-            m_hitStop = GetInt(InValues[0]);
-
-            return;
-        }
-        case 6:
-        {
-            m_disableHitStop = GetBool(InValues[0]);
-
-            return;
-        }
-        case 7:
-        {
-            m_restoreAirJump = GetBool(InValues[0]);
-
-            return;
-        }
-        case 8:
-        {
-            m_restoreAirDash = GetBool(InValues[0]);
-
-            return;
-        }
-        case 9:
-        {
-            m_enabledJumpCancel = GetBool(InValues[0]);
-
-            return;
-        }
-        case 10:
-        {
-            m_enabledSpecialCancel = GetBool(InValues[0]);
-
-            return;
-        }
-        case 11:
-        {
-            m_whiffLinkOptions.Add(GetString(InValues[0]));
-
-            return;
-        }
-        case 12:
-        {
-            m_whiffLinkOptions.Remove(GetString(InValues[0]));
-
-            return;
-        }
-        case 13:
-        {
-            m_hitLinkOptions.Add(GetString(InValues[0]));
-
-            return;
-        }
-        case 14:
-        {
-            m_hitLinkOptions.Remove(GetString(InValues[0]));
-
-            return;
-        }
+        return;
     }
 
 
     // Animation
-    checkingKeys = TArray<FString> {
-        "sprite",
-        "playAnimation",
-        "swapMeshSet",
-        "meshDisplay",
-        "startEyeBlink",
-        "stopEyeBlink",
-        // mouth things
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "sprite")
     {
-        case 0:
+        if (InValues[0] == "null")
         {
-            if (InValues[0] != "keep")
-            {
-                m_currentSprite = GetString(InValues[0]);
-            }
-            
-            m_stateExecutionCountdown = GetInt(InValues[1]);
-
-            m_renderer->SetSprite(m_currentSprite);
+            m_currentSprite = "";
+        }
+        else if (InValues[0] != "keep")
+        {
+            m_currentSprite = GetString(InValues[0]);
+        }
         
-            return;
-        }
-        case 1:
-        {
-            // TODO: IDK  playAnimation
+        m_stateExecutionCountdown = GetInt(InValues[1]);
 
-            return;
-        }
-        case 2:
+        m_renderer->SetSprite(m_currentSprite);
+    
+        return;
+    }
+    if (InExecutionHeader == "playAnimation")
+    {
+        // TODO: playAnimation
+    
+        return;
+    }
+    if (InExecutionHeader == "swapMeshSet")
+    {
+        m_currentMeshSet = InValues[0];
+        
+        return;
+    }
+    if (InExecutionHeader == "meshDisplay")
+    {
+        if (GetBool(InValues[1]))
         {
-            m_currentMeshSet = InValues[0];
-            
-            return;
-        }
-        case 3:
-        {
-            if (GetBool(InValues[1]))
+            if (m_meshesNotDisplay.Contains(GetString(InValues[0])))
             {
-                if (m_meshesNotDisplay.Contains(GetString(InValues[0])))
-                {
-                    m_meshesNotDisplay.Remove(GetString(InValues[0]));
-                }
+                m_meshesNotDisplay.Remove(GetString(InValues[0]));
             }
-            else
-            {
-                m_meshesNotDisplay.Add(GetString(InValues[0]));
-            }
-            
-            return;
         }
-        case 4:
+        else
         {
-            // TODO: IDK  startEyeBlink
+            m_meshesNotDisplay.Add(GetString(InValues[0]));
+        }
+        
+        return;
+    }
+    if (InExecutionHeader == "startEyeBlink")
+    {
+        // TODO: startEyeBlink
 
-            return;
-        }
-        case 5:
-        {
-            // TODO: IDK  stopEyeBlink
-            
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "stopEyeBlink")
+    {
+        // TODO: stopEyeBlink
+        
+        return;
+    }
+    // TODO: mouth things
+
+
+    // Statement
+    if (InExecutionHeader == "hit")
+    {
+        m_hitCharaList.Empty();
+        m_charaStatement = "ACTIVE_STATE";
+    
+        return;
+    }
+    if (InExecutionHeader == "recoveryState")
+    {
+        m_charaStatement = "RECOVERY_STATE";
+    
+        return;
     }
 
 
+    // Invuls
+    if (InExecutionHeader == "setStrikeInvul")
+    {
+        m_strikeInvul = GetBool(InValues);
+    
+        return;
+    }
+    if (InExecutionHeader == "setThrowInvul")
+    {
+        m_throwInvul = GetBool(InValues);
+    
+        return;
+    }
+    if (InExecutionHeader == "strickInvulForTime")
+    {
+        m_strikeInvul = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "throwInvulForTime")
+    {
+        m_throwInvul = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "setNoCollision")
+    {
+        m_noCollision = GetBool(InValues);
+    
+        return;
+    }
+
+    // Throw Details
+    if (InExecutionHeader == "isThrow")
+    {
+        m_isThrow = GetBool(InValues);
+    
+        return;
+    }
+    if (InExecutionHeader == "canThrowHitStun")
+    {
+        m_canThrowHitStun = GetBool(InValues);
+    
+        return;
+    }
+    if (InExecutionHeader == "throwRange")
+    {
+        m_throwRange = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "executeOnHit")
+    {
+        m_executeOnHit = GetString(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "enemyGrabSprite")
+    {
+        m_enemyGrabSprite = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "setGripPosition")
+    {
+        // TODO: setGripPosition
+
+        return;
+    }
+
+
+    // Move Details
+    if (InExecutionHeader == "damage")
+    {
+        m_damage = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "minDamagePercent")
+    {
+        m_minDamagePercent = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "setProration")
+    {
+        m_proration = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "attackLevel")
+    {
+        m_attackLevel = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "attackAngle")
+    {
+        m_attackAngle = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "guardType")
+    {
+        m_guardType = GetEnum(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "hitStop")
+    {
+        m_hitStop = GetInt(InValues[0]);
+    
+        return;
+    }
+    if (InExecutionHeader == "disableHitStop")
+    {
+        m_disableHitStop = GetBool(InValues[0]);
+
+        return;
+    }
+
+
+    // Physics Details
+    if (InExecutionHeader == "setGravity")
+    {
+        m_gravity = GetInt(InValues[0]);
+        
+        return;
+    }
+    if (InExecutionHeader == "resetGravity")
+    {
+        if (!m_highJumped)
+        {
+            m_gravity = m_jumpGravity;
+        }
+        else
+        {
+            m_gravity = m_highJumpGravity;
+        }
+
+        return;
+    }
+    if (InExecutionHeader == "addPositionX")
+    {
+        m_positionX += GetInt(InValues[0]);
+        
+        return;
+    }
+    if (InExecutionHeader == "physicsXImpulse")
+    {
+        m_velocityX += GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "physicsYImpulse")
+    {
+        m_velocityY += GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "inertiaPercent")
+    {
+        m_inertiaPercent = GetInt(InValues[0]);
+        
+        return;
+    }
+    if (InExecutionHeader == "velocityXPercent")
+    {
+        m_velocityXPercent = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "velocityYPercent")
+    {
+        m_velocityYPercent = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "velocityXPercentEachFrame")
+    {
+        m_velocityXPercentEachFrame = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "velocityYPercentEachFrame")
+    {
+        m_velocityYPercentEachFrame = GetInt(InValues[0]);
+
+        return;
+    }
+
+
+    // Restores
+    if (InExecutionHeader == "m_restoreAirJump")
+    {
+        // TODO: restoreAirJump
+
+        return;
+    }
+    if (InExecutionHeader == "m_restoreAirDash")
+    {
+        // TODO: restoreAirDash
+
+        return;
+    }
+
+
+    // Cancels
+    if (InExecutionHeader == "addWhiffCancel")
+    {
+        m_whiffCancels.Add(GetString(InValues[0]));
+
+        return;
+    }
+    if (InExecutionHeader == "addHitCancel")
+    {
+        m_hitCancels.Add(GetString(InValues[0]));
+
+        return;
+    }
+    if (InExecutionHeader == "removeWhiffCancel")
+    {
+        m_whiffCancels.Remove(GetString(InValues[0]));
+
+        return;
+    }
+    if (InExecutionHeader == "removeHitCancel")
+    {
+        m_hitCancels.Remove(GetString(InValues[0]));
+
+        return;
+    }
+
+/*
     // Sfx
-    checkingKeys = TArray<FString> {
+    checkingKeys = {
         "charaSfx",
         "stepSfx",
         "commonSfx",
@@ -2633,53 +2596,53 @@ void USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
 
     switch(result)
     {
-        case 0:
-        {
-            // TODO: charaSfx
-        
-            return;
-        }
-        case 1:
-        {
-            // TODO: stepSfx
+    case 0:
+    {
+        // TODO: charaSfx
+    
+        return;
+    }
+    case 1:
+    {
+        // TODO: stepSfx
 
-            return;
-        }
-        case 2:
-        {
-            // TODO: commonSfx
-        
-            return;
-        }
-        case 3:
-        {
-            // TODO: hitCommonSfx
+        return;
+    }
+    case 2:
+    {
+        // TODO: commonSfx
+    
+        return;
+    }
+    case 3:
+    {
+        // TODO: hitCommonSfx
 
-            return;
-        }
-        case 4:
-        {
-            // TODO: guardCommonSfx
+        return;
+    }
+    case 4:
+    {
+        // TODO: guardCommonSfx
 
-            return;
-        }
-        case 5:
-        {
-            // TODO: voiceLine
-        
-            return;
-        }
-        case 6:
-        {
-            // TODO: attackVoiceLine
+        return;
+    }
+    case 5:
+    {
+        // TODO: voiceLine
+    
+        return;
+    }
+    case 6:
+    {
+        // TODO: attackVoiceLine
 
-            return;
-        }
+        return;
+    }
     }
 
 
     // Effect
-    checkingKeys = TArray<FString> {
+    checkingKeys = {
         "floorEffect",
         "landingEffect",
         "setPointFxPosition",
@@ -2690,444 +2653,298 @@ void USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
 
     switch(result)
     {
-        case 0:
-        {
-            // TODO: floorEffect
-        
-            return;
-        }
-        case 1:
-        {
-            // TODO: landingEffect
-
-            return;
-        }
-        case 2:
-        {
-            // TODO: setPointFxPosition
-
-            return;
-        }
-        case 3:
-        {
-            // TODO: createObject
-
-            return;
-        }
-        case 4:
-        {
-            // TODO: createParticle
-
-            return;
-        }
-    }
-    
-
-    // Physics Details
-    checkingKeys = TArray<FString> {
-        "setGravity",
-        "resetGravity",
-        "addPositionX",
-        "physicsXImpulse",
-        "physicsYImpulse",
-        "inertiaPercent",
-        "velocityXPercent",
-        "velocityXPercentEachFrame",
-        "velocityYPercent",
-        "velocityYPercentEachFrame",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    case 0:
     {
-        case 0:
-        {
-            m_gravity = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            if (!m_highJumped)
-            {
-                m_gravity = m_jumpGravity;
-            }
-            else
-            {
-                m_gravity = m_highJumpGravity;
-            }
+        // TODO: floorEffect
+    
+        return;
+    }
+    case 1:
+    {
+        // TODO: landingEffect
 
-            return;
-        }
-        case 3:
-        {
-            m_positionX += GetInt(InValues[0]);
-        
-            return;
-        }
-        case 4:
-        {
-            m_velocityX += GetInt(InValues[0]);
+        return;
+    }
+    case 2:
+    {
+        // TODO: setPointFxPosition
 
-            return;
-        }
-        case 5:
-        {
-            m_velocityY += GetInt(InValues[0]);
+        return;
+    }
+    case 3:
+    {
+        // TODO: createObject
 
-            return;
-        }
-        case 6:
-        {
-            m_inertiaPercent = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 7:
-        {
-            m_velocityXPercent = GetInt(InValues[0]);
+        return;
+    }
+    case 4:
+    {
+        // TODO: createParticle
 
-            return;
-        }
-        case 8:
-        {
-            m_velocityXPercentEachFrame = GetInt(InValues[0]);
+        return;
+    }
+    }
+    */
 
-            return;
-        }
-        case 9:
-        {
-            m_velocityYPercent = GetInt(InValues[0]);
 
-            return;
-        }
-        case 10:
-        {
-            m_velocityYPercentEachFrame = GetInt(InValues[0]);
+    // Hit Details
+    if (InExecutionHeader == "hitGravity")
+    {
+        m_hitGravity = GetInt(InValues[0]);
 
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "hitPushbackX")
+    {
+        m_hitPushbackX = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "hitPushbackY")
+    {
+        m_hitPushbackY = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "hitAirPushbackX")
+    {
+        m_hitAirPushbackX = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "hitAirPushbackY")
+    {
+        m_hitAirPushbackY = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "counterHitAirPushbackX")
+    {
+        m_counterHitAirPushbackX = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "counterHitAirPushbackY")
+    {
+        m_counterHitAirPushbackY = GetInt(InValues[0]);
+
+        return;
     }
 
 
     // Hit Effect Details
-    checkingKeys = TArray<FString> {
-        "groundHitEffect",
-        "airHitEffect",
-        "groundCounterHitEffect",
-        "airCounterHitEffect",
-        "resetGroundHitEffect",
-        "resetAirHitEffect",
-        "resetGroundCounterHitEffect",
-        "resetAirCounterHitEffect"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "groundHitEffect")
     {
-        case 0:
-        {
-            m_groundHitEffect = GetEnum(InValues[0]);
+        m_groundHitEffect = GetEnum(InValues[0]);
 
-            return;
-        }
-        case 1:
-        {
-            m_airHitEffect = GetEnum(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "airHitEffect")
+    {
+        m_airHitEffect = GetEnum(InValues[0]);
 
-            return;
-        }
-        case 2:
-        {
-            m_counterGroundHitEffect = GetEnum(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "groundCounterHitEffect")
+    {
+        m_groundCounterHitEffect = GetEnum(InValues[0]);
 
-            return;
-        }
-        case 3:
-        {
-            m_counterAirHitEffect = GetEnum(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "airCounterHitEffect")
+    {
+        m_airCounterHitEffect = GetEnum(InValues[0]);
 
-            return;
-        }
-        case 4:
-        {
-            m_groundHitEffect = "NORMAL_UPPER";
+        return;
+    }
+    if (InExecutionHeader == "resetGroundHitEffect")
+    {
+        m_groundHitEffect = "NORMAL_UPPER";
 
-            return;
-        }
-        case 5:
-        {
-            m_airHitEffect = "NORMAL_UPPER";
+        return;
+    }
+    if (InExecutionHeader == "resetAirHitEffect")
+    {
+        m_airHitEffect = "NORMAL_UPPER";
 
-            return;
-        }
-        case 6:
-        {
-            m_counterGroundHitEffect = "NORMAL_UPPER";
+        return;
+    }
+    if (InExecutionHeader == "resetGroundCounterHitEffect")
+    {
+        m_groundCounterHitEffect = "NORMAL_UPPER";
 
-            return;
-        }
-        case 7:
-        {
-            m_counterAirHitEffect = "NORMAL_UPPER";
+        return;
+    }
+    if (InExecutionHeader == "resetAirCounterHitEffect")
+    {
+        m_airCounterHitEffect = "NORMAL_UPPER";
 
-            return;
-        }
+        return;
     }
 
 
-    // Hit Details
-    checkingKeys = TArray<FString> {
-        "hitGravity",
-        "hitPushbackX",
-        "hitPushbackY",
-        "wallStickDuration",
-        "rollDuration",
-        "groundBounceCount",
-        "groundBounceYVelocityPercent",
-        "wallBounceCount",
-        "wallBounceXVelocityPercent",
-        "wallBounceInCornerOnly"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Roll
+    if (InExecutionHeader == "rollCount")
     {
-        case 0:
-        {
-            m_hitGravity = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_hitPushbackX = GetInt(InValues[0]);
+        m_rollCount = GetInt(InValues[0]);
 
-            return;
-        }
-        case 2:
-        {
-            m_hitPushbackY = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 3:
-        {
-            m_wallStickDuration = GetInt(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "rollDuration")
+    {
+        m_rollDuration = GetInt(InValues[0]);
 
-            return;
-        }
-        case 4:
-        {
-            m_rollDuration = GetInt(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "counterHitRollDuration")
+    {
+        m_counterHitRollDuration = GetInt(InValues[0]);
 
-            return;
-        }
-        case 5:
-        {
-            m_groundBounceCount = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 6:
-        {
-            m_groundBounceYVelocityPercent = GetInt(InValues[0]);
-
-            return;
-        }
-        case 7:
-        {
-            m_wallBounceCount = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 8:
-        {
-            m_wallBounceXVelocityPercent = GetInt(InValues[0]);
-
-            return;
-        }
-        case 9:
-        {
-            m_wallBounceInCornerOnly = GetBool(InValues[0]);
-
-            return;
-        }
+        return;
     }
 
 
-    // Counter Hit Details
-    checkingKeys = TArray<FString> {
-        "counterHitRollDuration",
-        "counterHitGroundBounceCount",
-        "counterHitGroundBounceXVelocityPercent",
-        "counterHitWallBounceCount",
-        "counterHitWallBounceXVelocityPercent"
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Wall Stick Details
+    if (InExecutionHeader == "wallStickDuration")
     {
-        case 0:
-        {
-            m_counterHitRollDuration = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_counterHitGroundBounceCount = GetInt(InValues[0]);
+        m_wallStickDuration = GetInt(InValues[0]);
 
-            return;
-        }
-        case 2:
-        {
-            m_counterHitGroundBounceYVelocityPercent = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 3:
-        {
-            m_counterHitWallBounceCount = GetInt(InValues[0]);
+        return;
+    }
+    if (InExecutionHeader == "counterHitWallStickDuration")
+    {
+        m_counterHitWallStickDuration = GetInt(InValues[0]);
 
-            return;
-        }
-        case 4:
-        {
-            m_counterHitWallBounceXVelocityPercent = GetInt(InValues[0]);
-
-            return;
-        }
+        return;
     }
 
 
-    // Hit Air Details
-    checkingKeys = TArray<FString> {
-        "hitAirPushbackX",
-        "hitAirPushbackY",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Ground Bounce Details
+    if (InExecutionHeader == "groundBounceCount")
     {
-        case 0:
-        {
-            m_hitAirPushbackX = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_hitAirPushbackY = GetInt(InValues[0]);
+        m_groundBounceCount = GetInt(InValues[0]);
 
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "counterHitGroundBounceCount")
+    {
+        m_counterHitGroundBounceCount = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "groundBounceYVelocityPercent")
+    {
+        m_groundBounceYVelocityPercent = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "counterHitGroundBounceYVelocityPercent")
+    {
+        m_counterHitGroundBounceYVelocityPercent = GetInt(InValues[0]);
+
+        return;
     }
 
 
-    // Counter Hit Air Details
-    checkingKeys = TArray<FString> {
-        "counterHitAirPushbackX",
-        "counterHitAirPushbackY",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Wall Bounce Details
+    if (InExecutionHeader == "wallBounceInCornerOnly")
     {
-        case 0:
-        {
-            m_counterHitAirPushbackX = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_counterHitAirPushbackY = GetInt(InValues[0]);
+        m_wallBounceInCornerOnly = GetBool(InValues);
 
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "counterHitWallBounceInCornerOnly")
+    {
+        m_counterHitWallBounceInCornerOnly = GetBool(InValues);
+
+        return;
+    }
+    if (InExecutionHeader == "wallBounceCount")
+    {
+        m_wallBounceCount = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "counterHitWallBounceCount")
+    {
+        m_counterHitWallBounceCount = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "wallBounceXVelocityPercent")
+    {
+        m_wallBounceXVelocityPercent = GetInt(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "counterHitWallBounceXVelocityPercent")
+    {
+        m_counterHitWallBounceXVelocityPercent = GetInt(InValues[0]);
+
+        return;
     }
 
 
-    // Counter Hit Air Details
-    checkingKeys = TArray<FString> {
-        "setPushboxHeight",
-        "setPushboxHeightLow",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    // Pushbox Height Details
+    if (InExecutionHeader == "setPushboxHeight")
     {
-        case 0:
-        {
-            m_pushboxHeight = GetInt(InValues[0]);
-        
-            return;
-        }
-        case 1:
-        {
-            m_pushboxHeightLow = GetInt(InValues[0]);
+        m_pushboxHeight = GetInt(InValues[0]);
 
-            return;
-        }
+        return;
+    }
+    if (InExecutionHeader == "setPushboxHeightLow")
+    {
+        m_pushboxHeightLow = GetInt(InValues[0]);
+
+        return;
     }
     
 
     // Enables
-    checkingKeys = TArray<FString> {
-        "enableJump",
-        "enableNormals",
-        "enableSpecials",
-        "enableJumpCancel",
-        "enableWhiffCancels",
-        "enableSpecialCancel",
-    };
-    checkingKeys.Find(InExecutionHeader, result);
-
-    switch(result)
+    if (InExecutionHeader == "enableJump")
     {
-        case 0:
-        {
-            m_enableJump = GetBool(InValues[0]);
+        m_enableJump = GetBool(InValues[0]);
 
-            return;
-        }
-        case 1:
-        {
-            m_enableNormals = GetBool(InValues[0]);
-            
-            return;
-        }
-        case 2:
-        {
-            m_enableSpecials = GetBool(InValues[0]);
-            
-            return;
-        }
-        case 3:
-        {
-            m_enableJumpCancel = GetBool(InValues[0]);
-            
-            return;
-        }
-        case 4:
-        {
-            m_enableWhiffCancel = GetBool(InValues[0]);
-            
-            return;
-        }
-        case 5:
-        {
-            m_enableSpecialCancel = GetBool(InValues[0]);
-            
-            return;
-        }
+        return;
     }
+    if (InExecutionHeader == "enableNormals")
+    {
+        m_enableNormals = GetBool(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "enableSpecials")
+    {
+        m_enableSpecials = GetBool(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "enableJumpCancel")
+    {
+        m_enableJumpCancel = GetBool(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "enableWhiffCancel")
+    {
+        m_enableWhiffCancel = GetBool(InValues[0]);
+
+        return;
+    }
+    if (InExecutionHeader == "enableSpecialCancel")
+    {
+        m_enableSpecialCancel = GetBool(InValues[0]);
+
+        return;
+    }
+
 
     // Others
     if (InExecutionHeader == "setCrouch")
     {
         m_charaState = GetBool(InValues) ? "CROUCHING" : "STANDING";
+        
+        return;
     }
 }
 
@@ -3200,8 +3017,12 @@ void USTRChara::ResetStateValues()
     m_noCollision = false;
 
     // Throw Details
-    m_canGrab = false;
+    m_isThrow = false;
+    m_canThrowHitStun = false;
     m_throwRange = 0;
+    m_executeOnHit = "";
+
+    m_enemyGrabSprite = -1;
 
     // Move Details
     m_damage = 0;
@@ -3214,14 +3035,9 @@ void USTRChara::ResetStateValues()
     m_shortHitStop = false;
     m_disableHitStop = false;
 
-    m_restoreAirJump = false;
-    m_restoreAirDash = false;
-
-    m_enabledJumpCancel = false;
-    m_enabledSpecialCancel = false;
-
-    m_whiffLinkOptions.Empty();
-    m_hitLinkOptions.Empty();
+    // Cancels
+    m_whiffCancels.Empty();
+    m_hitCancels.Empty();
 
     // Physics Details
     m_inertiaPercent = 100;
@@ -3234,41 +3050,41 @@ void USTRChara::ResetStateValues()
     // Hit Effect Details
     m_groundHitEffect = "NORMAL_UPPER";
     m_airHitEffect = "NORMAL_UPPER";
-    m_counterGroundHitEffect = "NORMAL_UPPER";
-    m_counterAirHitEffect = "NORMAL_UPPER";
+    m_groundCounterHitEffect = "NORMAL_UPPER";
+    m_airCounterHitEffect = "NORMAL_UPPER";
 
     // Hit Details
     m_hitGravity = 0;
 
     m_hitPushbackX = 0;
     m_hitPushbackY = 0;
-
-    m_wallStickDuration = 0;
-    m_rollDuration = 0;
-
-    m_groundBounceCount = 0;
-    m_groundBounceYVelocityPercent = 0;
-
-    m_wallBounceCount = 0;
-    m_wallBounceXVelocityPercent = 0;
-    m_wallBounceInCornerOnly = false;
-
-    // Counter Hit Details
-    m_counterHitRollDuration = 0;
-
-    m_counterHitGroundBounceCount = 0;
-    m_counterHitGroundBounceYVelocityPercent = 0;
-
-    m_counterHitWallBounceCount = 0;
-    m_counterHitWallBounceXVelocityPercent = 0;
-
-    // Hit Air Details
     m_hitAirPushbackX = 0;
     m_hitAirPushbackY = 0;
-
-    // Counter Hit Air Details
     m_counterHitAirPushbackX = 0;
     m_counterHitAirPushbackY = 0;
+
+    // Roll Details
+    m_rollCount = 0;
+    m_rollDuration = 0;
+    m_counterHitRollDuration = 0;
+
+    // Wall Stick Details
+    m_wallStickDuration = 0;
+    m_counterHitWallStickDuration = 0;
+
+    // Ground Bounce Details
+    m_groundBounceCount = 0;
+    m_counterHitGroundBounceCount = 0;
+    m_groundBounceYVelocityPercent = 0;
+    m_counterHitGroundBounceYVelocityPercent = 0;
+
+    // Wall Bounce Details
+    m_wallBounceInCornerOnly = false;
+    m_counterHitWallBounceInCornerOnly = false;
+    m_wallBounceCount = 0;
+    m_wallBounceXVelocityPercent = 0;
+    m_counterHitWallBounceCount = 0;
+    m_counterHitWallBounceXVelocityPercent = 0;
 
     // Enables
     if (!m_moves.Contains(m_currentStateName))

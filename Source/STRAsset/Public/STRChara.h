@@ -330,8 +330,6 @@ private:
     // Damage sprites
     UPROPERTY()
     TMap<int32, FString> m_damageSprites;
-    UPROPERTY()
-    TMap<FString, FString> m_damageSpritesEx;
 
     // Mesh set
     UPROPERTY()
@@ -367,38 +365,19 @@ private:
     FString m_charaStatement = "NONE";
 
     UPROPERTY()
-    FString m_currentMeshSet;
-    UPROPERTY()
-    TArray<FString> m_meshesNotDisplay;
-    
-    int32 m_strikeInvul;
-    int32 m_throwInvul;
-    bool m_noCollision;
-    
-    UPROPERTY()
     TMap<FString, int32> m_storedVal;
 
     int8 m_facing = 1;
-
-    int32 m_positionX;
-    int32 m_positionY;
-
-    int32 m_velocityX;
-    int32 m_velocityY;
-
-    int32 m_gravity = 0;
 
     int32 m_pushboxWidth;
     int32 m_pushboxHeight;
     int32 m_pushboxHeightLow;
 
-    bool m_pushChecked;
     bool m_highJumped;
-    int32 m_groundedX;
 
 	int32 m_airJumpCount;
-
 	int32 m_airDashCount;
+
     int32 m_airDashTime;
     int32 m_airDashNoAttackTime;
 
@@ -408,6 +387,7 @@ private:
     bool m_enableJumpCancel;
     bool m_enableWhiffCancel;
     bool m_enableSpecialCancel;
+
 
     UPROPERTY()
     TArray<USTRChara*> m_hitCharaList;
@@ -455,10 +435,37 @@ private:
     #pragma endregion Parameters - If Statement
 
 
+    #pragma region Parameters - Animation
+
+    UPROPERTY()
+    FString m_currentSprite;
+
+    UPROPERTY()
+    FString m_currentMeshSet;
+    UPROPERTY()
+    TArray<FString> m_meshesNotDisplay;
+    
+    #pragma endregion Parameters - Animation
+
+
+    #pragma region Parameters - Invuls
+
+    int32 m_strikeInvul;
+    int32 m_throwInvul;
+    bool m_noCollision;
+    
+    #pragma endregion Parameters - Invuls
+
+
     #pragma region Parameters - Throw Details
 
-    bool m_canGrab;
+    bool m_isThrow;
+    bool m_canThrowHitStun;
     int32 m_throwRange;
+    UPROPERTY()
+    FString m_executeOnHit;
+
+    int32 m_enemyGrabSprite;
 
     #pragma endregion Parameters - Throw Details
 
@@ -466,7 +473,8 @@ private:
     #pragma region Parameters - Move Details
 
     int32 m_damage;
-    float m_proration;
+    int32 m_minDamagePercent;
+    int32 m_proration;
     int32 m_attackLevel;
     int32 m_attackAngle;
     FString m_guardType;
@@ -475,31 +483,20 @@ private:
     bool m_shortHitStop;
     bool m_disableHitStop;
 
-    bool m_restoreAirJump;
-    bool m_restoreAirDash;
-
-    bool m_enabledJumpCancel;
-    bool m_enabledSpecialCancel;
-
-    UPROPERTY()
-    TArray<FString> m_whiffLinkOptions;
-    UPROPERTY()
-    TArray<FString> m_hitLinkOptions;
-
     #pragma endregion Parameters - Move Details
-
-
-    #pragma region Parameters - Animation
-
-    UPROPERTY()
-    FString m_currentSprite;
-
-    #pragma endregion Parameters - Animation
 
 
     #pragma region Parameters - Physics Details
 
+    int32 m_positionX;
+    int32 m_positionY;
+    int32 m_groundedX;
+
+    int32 m_velocityX;
+    int32 m_velocityY;
+    
     int32 m_inertiaPercent;
+    int32 m_gravity = 0;
 
     int32 m_velocityXPercent;
     int32 m_velocityYPercent;
@@ -509,6 +506,16 @@ private:
     #pragma endregion Parameters - Physics Details
 
 
+    #pragma region Parameters - Cancels
+
+    UPROPERTY()
+    TArray<FString> m_whiffCancels;
+    UPROPERTY()
+    TArray<FString> m_hitCancels;
+
+    #pragma endregion Parameters - Cancels
+
+
     #pragma region Parameters - Hit Effect Details
     
     UPROPERTY()
@@ -516,9 +523,9 @@ private:
     UPROPERTY()
     FString m_airHitEffect = "NORMAL_UPPER";
     UPROPERTY()
-    FString m_counterGroundHitEffect = "NORMAL_UPPER";
+    FString m_groundCounterHitEffect = "NORMAL_UPPER";
     UPROPERTY()
-    FString m_counterAirHitEffect = "NORMAL_UPPER";
+    FString m_airCounterHitEffect = "NORMAL_UPPER";
 
     #pragma endregion Parameters - Hit Effect Details
 
@@ -530,44 +537,53 @@ private:
     int32 m_hitPushbackX;
     int32 m_hitPushbackY;
 
-    int32 m_wallStickDuration;
-    int32 m_rollDuration;
-
-    int32 m_groundBounceCount;
-    int32 m_groundBounceYVelocityPercent;
-
-    int32 m_wallBounceCount;
-    int32 m_wallBounceXVelocityPercent;
-    bool m_wallBounceInCornerOnly;
-
-    #pragma endregion Parameters - Hit Details
-
-
-    #pragma region Parameters - Counter Hit Details
-
-    int32 m_counterHitRollDuration;
-
-    int32 m_counterHitGroundBounceCount;
-    int32 m_counterHitGroundBounceYVelocityPercent;
-
-    int32 m_counterHitWallBounceCount;
-    int32 m_counterHitWallBounceXVelocityPercent;
-
-    #pragma endregion Parameters - Counter Hit Details
-
-
-    #pragma region Parameters - Hit Air Details
-
     int32 m_hitAirPushbackX;
     int32 m_hitAirPushbackY;
-
-    #pragma endregion Parameters - Hit Air Details
-
-
-    #pragma region Parameters - Counter Hit Air Details
 
     int32 m_counterHitAirPushbackX;
     int32 m_counterHitAirPushbackY;
 
-    #pragma endregion Parameters - Counter Hit Air Details
+    #pragma endregion Parameters - Hit Details
+
+
+    #pragma region Parameters - Roll Details
+
+    int32 m_rollCount;
+    int32 m_rollDuration;
+    int32 m_counterHitRollDuration;
+
+    #pragma endregion Parameters - Roll Details
+
+
+    #pragma region Parameters - Wall Stick Details
+
+    int32 m_wallStickDuration;
+    int32 m_counterHitWallStickDuration;
+
+    #pragma endregion Parameters - Wall Stick Details
+
+
+    #pragma region Parameters - Ground Bounce Details
+
+    int32 m_groundBounceCount;
+    int32 m_groundBounceYVelocityPercent;
+
+    int32 m_counterHitGroundBounceCount;
+    int32 m_counterHitGroundBounceYVelocityPercent;
+
+    #pragma endregion Parameters - Ground Bounce Details
+
+
+    #pragma region Parameters - Wall Bounce Details
+
+    bool m_wallBounceInCornerOnly;
+    bool m_counterHitWallBounceInCornerOnly;
+
+    int32 m_wallBounceCount;
+    int32 m_counterHitWallBounceCount;
+
+    int32 m_wallBounceXVelocityPercent;
+    int32 m_counterHitWallBounceXVelocityPercent;
+
+    #pragma endregion Parameters - Wall Bounce Details
 };
