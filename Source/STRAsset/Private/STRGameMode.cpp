@@ -1,8 +1,12 @@
 #include "STRGameMode.h"
-#include "STRChara.h"
 #include "STRPawn.h"
-#include "STRCamera.h"
-#include "CharaRenderer/STRCharaRenderer.h"
+#include "Camera/STRCamera.h"
+#include "Object/STRChara.h"
+#include "Object/STREffectObject.h"
+#include "Object/STRObject.h"
+#include "Particle/STRParticle.h"
+#include "Renderer/STRCharaRenderer.h"
+#include "Renderer/STRObjectRenderer.h"
 #include "DrawDebugHelpers.h"
 
 void ASTRGameMode::BeginPlay()
@@ -16,16 +20,12 @@ void ASTRGameMode::BeginPlay()
 
     int32 charaIndex;
     
-    USTRChara* chara = SpawnChara(DebugP2, "P2", charaIndex);
+    USTRChara* chara = CreateChara(DebugP2, "P2", charaIndex);
 
     if (chara)
     {
         chara->SetPosition(252000, 0);
     }
-
-    // charaMaxDistance = 1365000
-
-    // when the distance between chara is equal or greater than 790000, zoom out
 }
 
 void ASTRGameMode::Tick(float InDeltaTime)
@@ -33,39 +33,23 @@ void ASTRGameMode::Tick(float InDeltaTime)
     DrawDebugLine(GetWorld(), FVector(-1515000, 0, 0) / float(1000), FVector(-1515000, 0, 1000000) / float(1000), FColor::Red, false, -1, 0, 3);
     DrawDebugLine(GetWorld(), FVector(1515000, 0, 0) / float(1000), FVector(1515000, 0, 1000000) / float(1000), FColor::Red, false, -1, 0, 3);
     
+    ObjectTicking();
+    CameraTicking();
+}
+
+void ASTRGameMode::ObjectTicking()
+{
     for (USTRChara* chara : m_charaList)
     {
         chara->TickFacing();
         chara->InputTicking();
     }
 
-    if (m_hitStopFrame > 0)
+    for (USTRObject* obj : GetTickableObjectList())
     {
-        m_hitStopFrame--;
-
-        // UE_LOG(LogTemp, Warning, TEXT("Stop: %i"), m_hitStopFrame);
-    }
-    else
-    {
-        Ticking();
-    }
-
-    for (USTRChara* chara : m_charaList)
-    {
-        chara->ContinuousTicking();
-        chara->TickDrawCollisions();
-    }
-
-    CameraTicking();
-}
-
-void ASTRGameMode::Ticking()
-{
-    int32 i;
-
-    for (i = 0; i < m_charaList.Num(); i++)
-    {
-        m_charaList[i]->Ticking();
+        obj->EarlyTicking();
+        obj->Ticking();
+        obj->LateTicking();
     }
 
     for (USTRChara* chara : m_charaList)
@@ -73,19 +57,29 @@ void ASTRGameMode::Ticking()
         chara->TickPushboxCheck();
     }
 
-    for (i = 0; i < m_charaList.Num(); i++)
+    for (USTRObject* obj : m_objectList)
     {
-        m_charaList[i]->TickHitCheck();
+        obj->TickHitCheck();
     }
 
-    for (i = 0; i < m_charaList.Num(); i++)
+    for (USTRObject* obj : m_objectList)
     {
-        m_charaList[i]->TickDamageCheck();
+        obj->TickDamageCheck();
+    }
+
+    for (int32 i = m_objectList.Num() - 1; i >= 0; i--)
+    {
+        if (m_objectList[i]->CheckRequestedDestroy())
+        {
+            m_objectList.RemoveAt(i);
+        }
     }
     
-    for (USTRChara* chara : m_charaList)
+    for (USTRObject* obj : m_objectList)
     {
-        chara->TickRender();
+        obj->DecreaseFreezeTime();
+        obj->TickDrawCollisions();
+        obj->TickRender();
     }
 }
 
@@ -138,12 +132,48 @@ void ASTRGameMode::CameraTicking()
         }
 
         int32 offsetX, offsetY, offsetZ;
+        int32 offsetY_X, offsetY_Y;
 
-        offsetX = FMath::Clamp((minX + maxX) / 2, -990000, 990000);
-        offsetY = FMath::Min(FMath::Max(maxX - minX - 790000, 0), 260000);
-        offsetZ = FMath::Max(minY + FMath::Max(maxY - 50000, 0) + maxY - 300000, 0) / 2;
+        offsetX = FMath::Clamp((minX + maxX) / 2, -1000000, 1000000);
+        offsetY_X = FMath::Clamp(maxX - minX - 800000, 0, 250000);
+        offsetY_Y = FMath::Clamp(maxY - minY - 200000, 0, 250000);
+        offsetY = FMath::Max(offsetY_X, offsetY_Y);
+        offsetZ = FMath::Max(minY + FMath::Max(maxY - 200000, 0) + maxY - 300000, 0) / 2;
 
-        // Z: zoom out first
+        if (offsetY < m_cameraLastY)
+        {
+            if (!m_cameraZoomInEnabled && maxY == minY)
+            {
+                m_cameraZoomInEnabled = true;
+            }
+
+            if (m_cameraZoomInDelayTimer == 0)
+            {
+                m_cameraZoomInDelayTimer = 20;
+            }
+            else if (m_cameraZoomInEnabled)
+            {
+                m_cameraZoomInDelayTimer--;
+            }
+
+            if (m_cameraZoomInDelayTimer > 0)
+            {
+                offsetY = m_cameraLastY;
+            }
+            else
+            {
+                m_cameraZoomInDelayTimer = -1;
+
+                m_cameraLastY = offsetY;
+            }
+        }
+        else
+        {
+            m_cameraZoomInDelayTimer = 0;
+            m_cameraZoomInEnabled = false;
+
+            m_cameraLastY = offsetY;
+        }
 
         FTransformStruct transform = {
             offsetX,
@@ -165,14 +195,6 @@ void ASTRGameMode::CameraTicking()
     }
 }
 
-void ASTRGameMode::ApplyHitStop(int32 InHitStopFrame)
-{
-    if (InHitStopFrame > m_hitStopFrame)
-    {
-        m_hitStopFrame = InHitStopFrame;
-    }
-}
-
 int32 ASTRGameMode::AssignPlayer(ASTRPawn* playerPawn)
 {
     int32 playerIndex = m_playerList.Num();
@@ -180,7 +202,7 @@ int32 ASTRGameMode::AssignPlayer(ASTRPawn* playerPawn)
 
     UE_LOG(LogTemp, Warning, TEXT("Player Assigned at: %i"), playerIndex);
 
-    USTRChara* chara = SpawnChara(DebugP1, "P1", charaIndex);
+    USTRChara* chara = CreateChara(DebugP1, "P1", charaIndex);
 
     if (charaIndex == -1)
     {
@@ -207,16 +229,16 @@ void ASTRGameMode::PlayerInput(int32 InIndex, TArray<FKey> InKeyMappings, FKey I
     }
 
     int32 charaIndex = m_playerControllingChara[InIndex];
-    int32 keyIndex;
+    int32 buttonIndex;
 
     if (charaIndex >= m_charaList.Num() || charaIndex < 0)
     {
         return;
     }
 
-    InKeyMappings.Find(InKey, keyIndex);
+    InKeyMappings.Find(InKey, buttonIndex);
 
-    switch(keyIndex)
+    switch(buttonIndex)
     {
         case 0:
         {
@@ -244,23 +266,43 @@ void ASTRGameMode::PlayerInput(int32 InIndex, TArray<FKey> InKeyMappings, FKey I
         }
         default:
         {
-            uint8 key = FMath::Max(keyIndex - 4, 0);
+            int32 buttonCount = GetPlayerButtons().Num();
+            uint8 button = FMath::Max(buttonIndex - 4, 0);
 
-            if (key > 4)
+            if (button < 0 || button > buttonCount)
             {
                 break;
             }
 
-            m_charaList[charaIndex]->PlayerButton(keyIndex - 4, InPressed);
+            m_charaList[charaIndex]->PlayerButton(button, InPressed);
 
             break;
         }
     }
 }
 
-USTRChara* ASTRGameMode::SpawnChara(FString InCharaName, FString InCharaLayer, int32& OutCharaIndex)
+void ASTRGameMode::CreateObject(USTRObject* InParent, FString InObjectName, FSTRDataSet InDataSet)
 {
-    if (!CharaSets.Contains(InCharaName))
+    if (!InDataSet.EffectScriptData || !InDataSet.CollisionData)
+    {
+        return;
+    }
+
+    if (!InDataSet.EffectScriptData->Subroutines.Contains(InObjectName))
+    {
+        return;
+    }
+
+    USTREffectObject* object = NewObject<USTREffectObject>();
+    
+    object->Init(this, InParent, InObjectName, InDataSet);
+
+    m_objectList.Add(object);
+}
+
+USTRChara* ASTRGameMode::CreateChara(FString InCharaName, FString InCharaLayer, int32& OutCharaIndex)
+{
+    if (!DataSets.Contains(InCharaName))
     {
         OutCharaIndex = -1;
 
@@ -274,14 +316,31 @@ USTRChara* ASTRGameMode::SpawnChara(FString InCharaName, FString InCharaLayer, i
 
     ASTRCharaRenderer* renderer = GetWorld()->SpawnActor<ASTRCharaRenderer>(ASTRCharaRenderer::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, spawnInfo);
 
-    chara->PreInit(this, charaIndex, InCharaLayer, renderer, CharaSets[InCharaName]);
+    chara->PreInit(this, charaIndex, InCharaLayer, renderer, DataSets[InCharaName]);
     chara->Init();
 
+    m_objectList.Add(chara);
     m_charaList.Add(chara);
 
     OutCharaIndex = charaIndex;
 
     return chara;
+}
+
+ASTRParticle* ASTRGameMode::CreateParticle(class USTRParticleDataAsset* InParticleDataAsset, FString InParticleName)
+{
+    if (InParticleDataAsset && InParticleDataAsset->Particles.Contains(InParticleName))
+    {
+        FActorSpawnParameters spawnInfo;
+
+        ASTRParticle* particle = GetWorld()->SpawnActor<ASTRParticle>(ASTRParticle::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, spawnInfo);
+
+        particle->Init(InParticleDataAsset->Particles[InParticleName]);
+
+        return particle;
+    }
+
+    return nullptr;
 }
 
 TArray<USTRChara*> ASTRGameMode::GetOpponentCharaList(FString InLayer, bool InContainsIgnore)
@@ -294,9 +353,7 @@ TArray<USTRChara*> ASTRGameMode::GetOpponentCharaList(FString InLayer, bool InCo
 
         if (InLayer == "P1" || InLayer == "P2")
         {
-            FString opponentLayer = InLayer == "P1" ? "P2" : "P1";
-
-            if (charaLayer == opponentLayer)
+            if (charaLayer != InLayer)
             {
                 result.Add(chara);
             }
@@ -318,13 +375,13 @@ TArray<USTRChara*> ASTRGameMode::GetOpponentCharaList(FString InLayer, bool InCo
 
 void ASTRGameMode::DrawCollision(FSTRCollision InCollision, FColor InColor)
 {
-    int32 minX = InCollision.X - InCollision.Width;
-    int32 minY = InCollision.Y - InCollision.Height;
-    int32 maxX = InCollision.X + InCollision.Width;
-    int32 maxY = InCollision.Y + InCollision.Height;
+    int32 x = InCollision.X;
+    int32 y = InCollision.Y;
+    int32 w = InCollision.Width;
+    int32 h = InCollision.Height;
 
-    DrawDebugLine(GetWorld(), FVector(minX, 0, minY) / float(1000), FVector(minX, 0, maxY) / float(1000), InColor, false, -1, 0, 3);
-    DrawDebugLine(GetWorld(), FVector(minX, 0, maxY) / float(1000), FVector(maxX, 0, maxY) / float(1000), InColor, false, -1, 0, 3);
-    DrawDebugLine(GetWorld(), FVector(maxX, 0, maxY) / float(1000), FVector(maxX, 0, minY) / float(1000), InColor, false, -1, 0, 3);
-    DrawDebugLine(GetWorld(), FVector(maxX, 0, minY) / float(1000), FVector(minX, 0, minY) / float(1000), InColor, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x, 0, y) / float(1000), FVector(x, 0, y + h) / float(1000), InColor, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x, 0, y + h) / float(1000), FVector(x + w, 0, y + h) / float(1000), InColor, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x + w, 0, y + h) / float(1000), FVector(x + w, 0, y) / float(1000), InColor, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x + w, 0, y) / float(1000), FVector(x, 0, y) / float(1000), InColor, false, -1, 0, 3);
 }

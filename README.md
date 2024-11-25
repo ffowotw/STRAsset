@@ -3,29 +3,12 @@
 
 # 一個虛幻引擎4的格鬥遊戲插件
 
-TRScript 是一個目前還在 alpha 版的虛幻引擎4用的格鬥遊戲插件。
+STRAsset 是一個目前還在 alpha 版的虛幻引擎4用的格鬥遊戲插件。
 
-## 自製的獨立腳本
+## 簡易的獨立腳本
 
-STRAsset有著 `.trscript` 與 `.collision` 的腳本支援。
+STRAsset有著 `.trscript` 與 `.collision` 這兩個專屬於這個插件的腳本的支援，前者為物件腳本，後者為碰撞箱腳本。
 
-`.trscript` 與 `.collision` 皆為 TRScript 的專屬腳本，為製作角色/道具與該碰撞箱的腳本。
+## 了解更多
 
-## .trscript
-
-`.trscript` 為本插件的角色／道具腳本的檔案類型，用於製作角色與道具。
-
-如需更詳細的資料，請至 https://ffowotw.github.io/trscript/
-
-## .collision
-
-`.collision` 則為本插件的碰撞箱的檔案類型，用於製作角色與道具的碰撞箱。
-
-## Mesh Array 、 Anim Set 與 Anim Array
-
-`MeshArray` 、 `AnimSet` 與 `AnimArray` 皆可在虛幻引擎4中的內容瀏覽器的選單內的 `STR Asset` 中可以創建。
-
-用途為以下幾點：
-- MeshArray: 為一個 Skeletal Mesh 的陣列，將角色的拆分多個部分，以方便之後的顯示與隱藏。
-- AnimSet: 為每個部分的動畫，動畫的金鑰要與腳本中的名稱相同。
-- AnimArray: 為一個 AnimSet 陣列，將各個部分的 AnimSet 存入。
+如需更詳細的資料，請至 https://ffowotw.github.io/strasset/ 閱讀更詳細的資料。

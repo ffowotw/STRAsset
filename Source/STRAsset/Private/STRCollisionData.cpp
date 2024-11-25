@@ -4,29 +4,29 @@ bool FSTRCollision::CheckCollide(FSTRCollision InCollisionA, FSTRCollision InCol
 {
     int32 xA, xB, yA, yB;
 
-    if (InCollisionA.X > InCollisionB.X)
+    if (InCollisionA.X < InCollisionB.X)
     {
-        xA = InCollisionA.X - InCollisionA.Width;
+        xA = InCollisionA.X + InCollisionA.Width;
         xB = InCollisionB.X + InCollisionB.Width;
     }
     else
     {
-        xA = InCollisionB.X - InCollisionB.Width;
+        xA = InCollisionB.X + InCollisionB.Width;
         xB = InCollisionA.X + InCollisionA.Width;
     }
 
-    if (InCollisionA.Y > InCollisionB.Y)
+    if (InCollisionA.Y < InCollisionB.Y)
     {
-        yA = InCollisionA.Y - InCollisionA.Height;
-        yB = InCollisionB.Y + InCollisionB.Height;
+        yA = InCollisionA.Y + InCollisionA.Height;
+        yB = InCollisionB.Y;
     }
     else
     {
-        yA = InCollisionB.Y - InCollisionB.Height;
-        yB = InCollisionA.Y + InCollisionA.Height;
+        yA = InCollisionB.Y + InCollisionB.Height;
+        yB = InCollisionA.Y;
     }
 
-    return xA < xB && yA < yB;
+    return xA > xB && yA > yB;
 }
 
 void USTRCollisionData::SetScriptText(FString InString)
@@ -59,8 +59,6 @@ void USTRCollisionData::GenerateCollisions()
         {
             continue;
         }
-
-        // UE_LOG(LogTemp, Warning, TEXT("%s"), *str);
 
         if (currentCollisionSet == "" && header == "beginCollisionSet")
         {
@@ -123,12 +121,18 @@ TArray<FSTRCollision> USTRCollisionData::GetCollisions(FString InType, FString I
             continue;
         }
 
-        int32 X, Y;
+        int32 X = InPositionX;
 
-        X = InPositionX + collision.X * InFacing;
-        Y = InPositionY + collision.Y;
+        if (InFacing > 0)
+        {
+            X += collision.X;
+        }
+        else
+        {
+            X -= collision.X;
+        }
 
-        results.Add({collision.Type, X, Y, collision.Width, collision.Height});
+        results.Add({collision.Type, X, InPositionY + collision.Y, collision.Width * InFacing, collision.Height});
     }
     
     return results;

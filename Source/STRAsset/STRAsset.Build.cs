@@ -39,6 +39,7 @@ public class STRAsset : ModuleRules
 				"Slate",
 				"SlateCore",
 				"InputCore",
+				"Niagara",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

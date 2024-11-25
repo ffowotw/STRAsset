@@ -16,4 +16,5 @@ public:
 
     bool DisableMoveCanceling = false;
     bool IsFollowupMove = false;
+    int32 DisableFlag = 0;
 };

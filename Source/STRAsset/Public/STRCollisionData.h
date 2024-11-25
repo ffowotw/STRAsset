@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "STRTRScriptData.h"
 #include "STRCollisionData.generated.h"
 
 // Collision
