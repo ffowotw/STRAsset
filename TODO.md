@@ -1,10 +1,11 @@
 # future plans
 
-Need to implement:
-[] implement eyes blink
-[] implement sfx
-[] implement grab
-[] implement particle distroy when ended
-[] implement game system
+Need to be finished:
+- finishing effect object
+- finishing sfx
+- finishing grab
+- finishing eyes blink
+- finishing game system
 
 Need to be fixed:
+- fixing teleport if player was hit by a projectile near corner

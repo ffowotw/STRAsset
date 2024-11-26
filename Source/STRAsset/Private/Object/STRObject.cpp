@@ -9,14 +9,17 @@
 
 void USTRObject::EarlyTicking()
 {
-    m_storedVal["frame"]++;
+    ModifyValue("Add", "156", 1);
 }
 
 void USTRObject::Ticking()
 {
-    m_positionX += m_velocityX;
-    m_positionY += m_velocityY;
-    m_velocityY -= m_gravity;
+    StoreValue("202", GetValue("202") * GetValue("53") / 100);
+    StoreValue("203", GetValue("203") * GetValue("54") / 100);
+
+    ModifyValue("ADD", "200", GetValue("202") * GetValue("50") / 100);
+    ModifyValue("ADD", "201", GetValue("203") * GetValue("51") / 100);
+    ModifyValue("SUB", "203", GetValue("204"));
 }
 
 void USTRObject::LateTicking()
@@ -47,7 +50,7 @@ void USTRObject::TickHitCheck()
 
         bool hit = false;
 
-        if (m_isThrow)
+        if (GetValue("57") == 1)
         {
             if (object->IsA(USTRChara::StaticClass()))
             {
@@ -63,26 +66,16 @@ void USTRObject::TickHitCheck()
                     continue;
                 }
 
-                TArray<FSTRCollision> hitboxes = {
-                    {
-                        "HIT",
-                        m_throwRange / 2,
-                        1,
-                        m_throwRange,
-                        1
-                    }
-                };
-
-                if (chara->m_positionX > m_positionX)
+                if (chara->GetValue("200") > GetValue("200"))
                 {
-                    if (chara->m_positionX - chara->GetPushboxWidth() < m_positionX + m_throwRange)
+                    if (chara->GetValue("200") - chara->GetPushboxWidth() < GetValue("200") + GetValue("60"))
                     {
                         hit = true;
                     }
                 }
                 else
                 {
-                    if (chara->m_positionX + chara->GetPushboxWidth() > m_positionX - m_throwRange)
+                    if (chara->GetValue("200") + chara->GetPushboxWidth() > GetValue("200") - GetValue("60"))
                     {
                         hit = true;
                     }
@@ -179,7 +172,7 @@ void USTRObject::TickDamageCheck()
     {
         USTRObject* hitObject = m_queuedHit[i];
 
-        int32 hitStop = m_hitStop;
+        int32 hitStop = GetValue("68");
 
         if (hitObject->IsA(USTRChara::StaticClass()))
         {
@@ -212,7 +205,7 @@ void USTRObject::TickDamageCheck()
                 }
             }
 
-            chara->JumpToHitState(m_attackLevel, Cast<USTRChara>(this));
+            chara->JumpToHitState(GetValue("64"), Cast<USTRChara>(this));
 
             air = chara->GetCharaState() == "JUMPING";
 
@@ -221,27 +214,27 @@ void USTRObject::TickDamageCheck()
             {
                 if (counter)
                 {
-                    chara->m_velocityX = m_counterHitAirPushbackX * m_facing;
-                    chara->m_velocityY = m_counterHitAirPushbackY;
+                    chara->StoreValue("202", GetValue("74") * m_facing);
+                    chara->StoreValue("203", GetValue("75"));
                 }
                 else
                 {
-                    chara->m_velocityX = m_hitAirPushbackX * m_facing;
-                    chara->m_velocityY = m_hitAirPushbackY;
+                    chara->StoreValue("202", GetValue("72") * m_facing);
+                    chara->StoreValue("203", GetValue("73"));
                 }
             }
             else
             {
-                chara->m_velocityX = m_hitPushbackX * m_facing;
-                chara->m_velocityY = m_hitPushbackY;
+                chara->StoreValue("202", GetValue("70") * m_facing);
+                chara->StoreValue("203", GetValue("71"));
             }
 
-            hitStop += GetAdditionalHitStop(m_attackLevel, counter);
+            hitStop += GetAdditionalHitStop(GetValue("64"), counter);
         }
 
-        hitObject->m_life -= m_damage;
+        hitObject->ModifyValue("SUB", "150", GetValue("61"));
 
-        if (!m_disableHitStop)
+        if (GetValue("69") != 1)
         {
             TArray<USTRObject*> objectList = m_gameMode->GetObjectList();
 
@@ -259,12 +252,12 @@ void USTRObject::TickRender()
 {
     if (m_renderer)
     {
-        m_renderer->Render(m_facing, m_positionX, m_positionY);
+        m_renderer->Render(m_facing, GetValue("200"), GetValue("201"));
     }
 
     for (ASTRParticle* particle : m_particles)
     {
-        particle->Render(m_facing, m_positionX, m_positionY);
+        particle->Render(m_facing, GetValue("200"), GetValue("201"));
     }
 }
 
@@ -295,13 +288,13 @@ bool USTRObject::Execute(FString InExecutionHeader, TArray<FString> InValues)
     // Checking
     if (InExecutionHeader == "checkCurrentStateName")
     {
-        m_storedVal["Tmp"] = CheckCurrentStateName(InValues[0]) ? 1 : 0;
+        StoreValue("Tmp", CheckCurrentStateName(InValues[0]) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "checkLastStateName")
     {
-        m_storedVal["Tmp"] = CheckLastStateName(InValues[0]) ? 1 : 0;
+        StoreValue("Tmp", CheckLastStateName(InValues[0]) ? 1 : 0);
 
         return true;
     }
@@ -366,9 +359,13 @@ bool USTRObject::Execute(FString InExecutionHeader, TArray<FString> InValues)
     // Value
     if (InExecutionHeader == "storeVal")
     {
-        m_storedVal[InValues[0]] = GetInt(InValues[1]);
+        StoreValue(GetString(InValues[0]), GetInt(InValues[1]));
 
         return true;
+    }
+    if (InExecutionHeader == "modifyVal")
+    {
+        ModifyValue(GetEnum(InValues[0]), GetString(InValues[1]), GetInt(InValues[2]));
     }
 
 
@@ -392,7 +389,8 @@ bool USTRObject::FunctionExecutions(FString InExecutionHeader, TArray<FString> I
 {
     if (InExecutionHeader == "life")
     {
-        m_life = GetInt(InValues[0]);
+        StoreValue("0", GetInt(InValues[0]));
+        StoreValue("150", GetInt(InValues[0]));
 
         return true;
     }
@@ -451,7 +449,7 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Animation
     if (InExecutionHeader == "sprite")
     {
-        m_stepFrame = true;
+        m_animStatment = "SPRITE";
 
         if (InValues[0] == "null")
         {
@@ -524,94 +522,114 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Physics
     if (InExecutionHeader == "addPositionX")
     {
-        m_positionX += GetInt(InValues[0]);
+        ModifyValue("ADD", "200", GetInt(InValues[0]));
         
         return true;
     }
     if (InExecutionHeader == "physicsXImpulse")
     {
-        m_velocityX += GetInt(InValues[0]) * m_facing;
+        ModifyValue("ADD", "202", GetInt(InValues[0]) * m_facing);
 
         return true;
     }
     if (InExecutionHeader == "physicsYImpulse")
     {
-        m_velocityY += GetInt(InValues[0]);
-
-        return true;
-    }
-    if (InExecutionHeader == "velocityXPercent")
-    {
-        m_velocityXPercent = GetInt(InValues[0]);
-
-        return true;
-    }
-    if (InExecutionHeader == "velocityYPercent")
-    {
-        m_velocityYPercent = GetInt(InValues[0]);
-
-        return true;
-    }
-    if (InExecutionHeader == "velocityXPercentEachFrame")
-    {
-        m_velocityXPercentEachFrame = GetInt(InValues[0]);
-
-        return true;
-    }
-    if (InExecutionHeader == "velocityYPercentEachFrame")
-    {
-        m_velocityYPercentEachFrame = GetInt(InValues[0]);
+        ModifyValue("ADD", "203", GetInt(InValues[0]) * m_facing);
 
         return true;
     }
     if (InExecutionHeader == "setGravity")
     {
-        m_gravity = GetInt(InValues[0]);
+        StoreValue("204", GetInt(InValues[0]));
         
         return true;
     }
     if (InExecutionHeader == "resetGravity")
     {
-        if (m_storedVal.Contains("Gravity"))
+        if (ContainsValue("Gravity"))
         {
-            m_gravity = m_storedVal["Gravity"];
+            CopyValue("204", "Gravity");
         }
         else
         {
-            m_gravity = 0;
+            StoreValue("204", 0);
         }
 
+        return true;
+    }
+
+    if (InExecutionHeader == "velocityXPercent")
+    {
+        StoreValue("50", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "velocityYPercent")
+    {
+        StoreValue("51", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "gravityPercent")
+    {
+        StoreValue("52", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "velocityXPercentEachFrame")
+    {
+        StoreValue("53", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "velocityYPercentEachFrame")
+    {
+        StoreValue("54", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "gravityPercentEachFrame")
+    {
+        StoreValue("55", GetInt(InValues[0]));
+
+        return true;
+    }
+    if (InExecutionHeader == "inertiaPercent")
+    {
+        StoreValue("56", GetInt(InValues[0]));
+        
         return true;
     }
     
     // Throw
     if (InExecutionHeader == "isThrow")
     {
-        m_isThrow = GetBool(InValues);
+        StoreValue("57", GetBool(InValues) ? 1 : 0);
     
         return true;
     }
     if (InExecutionHeader == "canThrowHitStun")
     {
-        m_canThrowHitStun = GetBool(InValues);
+        StoreValue("58", GetBool(InValues) ? 1 : 0);
     
         return true;
     }
     if (InExecutionHeader == "throwRange")
     {
-        m_throwRange = GetInt(InValues[0]);
+        StoreValue("59", GetInt(InValues[0]));
     
         return true;
     }
     if (InExecutionHeader == "executeOnHit")
     {
+        // TODO: Need to Finish
         m_executeOnHit = GetString(InValues[0]);
     
         return true;
     }
     if (InExecutionHeader == "enemyGrabSprite")
     {
-        m_enemyGrabSprite = GetInt(InValues[0]);
+        StoreValue("60", GetInt(InValues[0]));
     
         return true;
     }
@@ -625,19 +643,19 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Damage
     if (InExecutionHeader == "damage")
     {
-        m_damage = GetInt(InValues[0]);
+        StoreValue("61", GetInt(InValues[0]));
     
         return true;
     }
     if (InExecutionHeader == "setProration")
     {
-        m_proration = GetInt(InValues[0]);
+        StoreValue("62", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "minDamagePercent")
     {
-        m_minDamagePercent = GetInt(InValues[0]);
+        StoreValue("63", GetInt(InValues[0]));
     
         return true;
     }
@@ -651,37 +669,17 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     }
     if (InExecutionHeader == "attackAngle")
     {
-        m_attackAngle = GetInt(InValues[0]);
+        StoreValue("65", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "isAirUnblockable")
     {
-        m_isAirUnblockable = GetBool(InValues);
+        StoreValue("66", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
 
-    // Attack Disable
-    if (InExecutionHeader == "noPushbackScaling")
-    {
-        m_noPushbackScaling = GetBool(InValues);
-
-        return true;
-    }
-    if (InExecutionHeader == "noHitstunScaling")
-    {
-        m_noHitstunScaling = GetBool(InValues);
-
-        return true;
-    }
-    if (InExecutionHeader == "noGravityScaling")
-    {
-        m_noGravityScaling = GetBool(InValues);
-
-        return true;
-    }
-    
     // Types
     if (InExecutionHeader == "guardType")
     {
@@ -699,7 +697,7 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Hit
     if (InExecutionHeader == "hitGravity")
     {
-        m_hitGravity = GetInt(InValues[0]);
+        StoreValue("67", GetInt(InValues[0]));
 
         return true;
     }
@@ -707,50 +705,50 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     {
         if (GetInt(InValues[0]) >= 0)
         {
-            m_hitStop = GetInt(InValues[0]);
+            StoreValue("68", GetInt(InValues[0]));
         }
     
         return true;
     }
     if (InExecutionHeader == "disableHitStop")
     {
-        m_disableHitStop = GetBool(InValues[0]);
+        StoreValue("69", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "hitPushbackX")
     {
-        m_hitPushbackX = GetInt(InValues[0]);
+        StoreValue("70", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "hitPushbackY")
     {
-        m_hitPushbackY = GetInt(InValues[0]);
+        StoreValue("71", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "hitAirPushbackX")
     {
-        m_hitAirPushbackX = GetInt(InValues[0]);
+        StoreValue("72", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "hitAirPushbackY")
     {
-        m_hitAirPushbackY = GetInt(InValues[0]);
+        StoreValue("73", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitAirPushbackX")
     {
-        m_counterHitAirPushbackX = GetInt(InValues[0]);
+        StoreValue("74", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitAirPushbackY")
     {
-        m_counterHitAirPushbackY = GetInt(InValues[0]);
+        StoreValue("75", GetInt(InValues[0]));
 
         return true;
     }
@@ -808,19 +806,19 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Roll
     if (InExecutionHeader == "rollCount")
     {
-        m_rollCount = GetInt(InValues[0]);
+        StoreValue("76", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "rollDuration")
     {
-        m_rollDuration = GetInt(InValues[0]);
+        StoreValue("55", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitRollDuration")
     {
-        m_counterHitRollDuration = GetInt(InValues[0]);
+        StoreValue("56", GetInt(InValues[0]));
 
         return true;
     }
@@ -828,13 +826,13 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Wall Stick
     if (InExecutionHeader == "wallStickDuration")
     {
-        m_wallStickDuration = GetInt(InValues[0]);
+        StoreValue("79", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitWallStickDuration")
     {
-        m_counterHitWallStickDuration = GetInt(InValues[0]);
+        StoreValue("80", GetInt(InValues[0]));
 
         return true;
     }
@@ -842,25 +840,25 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Ground Bounce
     if (InExecutionHeader == "groundBounceCount")
     {
-        m_groundBounceCount = GetInt(InValues[0]);
+        StoreValue("81", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitGroundBounceCount")
     {
-        m_counterHitGroundBounceCount = GetInt(InValues[0]);
+        StoreValue("82", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "groundBounceYVelocityPercent")
     {
-        m_groundBounceYVelocityPercent = GetInt(InValues[0]);
+        StoreValue("83", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitGroundBounceYVelocityPercent")
     {
-        m_counterHitGroundBounceYVelocityPercent = GetInt(InValues[0]);
+        StoreValue("84", GetInt(InValues[0]));
 
         return true;
     }
@@ -868,45 +866,52 @@ bool USTRObject::StateExecutions(FString InExecutionHeader, TArray<FString> InVa
     // Wall Bounce
     if (InExecutionHeader == "wallBounceInCornerOnly")
     {
-        m_wallBounceInCornerOnly = GetBool(InValues);
+        StoreValue("85", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "counterHitWallBounceInCornerOnly")
     {
-        m_counterHitWallBounceInCornerOnly = GetBool(InValues);
+        StoreValue("86", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "wallBounceCount")
     {
-        m_wallBounceCount = GetInt(InValues[0]);
+        StoreValue("87", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitWallBounceCount")
     {
-        m_counterHitWallBounceCount = GetInt(InValues[0]);
+        StoreValue("88", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "wallBounceXVelocityPercent")
     {
-        m_wallBounceXVelocityPercent = GetInt(InValues[0]);
+        StoreValue("89", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "counterHitWallBounceXVelocityPercent")
     {
-        m_counterHitWallBounceXVelocityPercent = GetInt(InValues[0]);
+        StoreValue("90", GetInt(InValues[0]));
 
         return true;
     }
 
-    // Ignore
-    if (InExecutionHeader == "ignoreSpeed")
+    if (InExecutionHeader == "noPushbackScaling")
     {
-        //
+        return true;
+    }
+    if (InExecutionHeader == "noHitstunScaling")
+    {
+        return true;
+    }
+    if (InExecutionHeader == "noGravityScaling")
+    {
+        return true;
     }
 
     return false;
@@ -957,35 +962,41 @@ void USTRObject::ResetStateValues()
     m_stateExecutionIndex = 0;
     m_stateExecutionCountdown = 0;
 
-    if (!m_storedVal.Contains("frame"))
-    {
-        m_storedVal.Add("frame", 0);
-    }
-    else
-    {
-        m_storedVal["frame"] = 0;
-    }
+    StoreValue("156", 0);
     
     m_state = "STARTUP_STATE";
 
     m_labels.Empty();
 
-    // Move Details
-    m_damage = 0;
-    m_proration = 65;
-    m_attackLevel = 0;
-    m_attackAngle = 0;
-    m_guardType = "ANY";
+    // Physics
+    StoreValue("50", 100);
+    StoreValue("51", 100);
+    StoreValue("52", 100);
+    StoreValue("53", 100);
+    StoreValue("54", 100);
+    StoreValue("55", 100);
+    StoreValue("56", 100);
 
-    m_hitStop = -1;
-    m_shortHitStop = false;
-    m_disableHitStop = false;
+    // Throw Details
+    StoreValue("57", 0);
+    StoreValue("58", 0);
+    StoreValue("59", 0);
+    StoreValue("60", 0);
+
+    m_executeOnHit = "";
+
+    // Move Details
+    StoreValue("61", 0);
+    StoreValue("62", 65);
+    StoreValue("63", 0);
+    StoreValue("64", 0);
+    StoreValue("65", 0);
+    StoreValue("66", 0);
+
+    m_guardType = "ANY";
+    m_counterHitType = "DEFAULT";
 
     // Physics Details
-    m_velocityXPercent = 100;
-    m_velocityYPercent = 100;
-    m_velocityXPercentEachFrame = 100;
-    m_velocityYPercentEachFrame = 100;
 
     // Hit Effect Details
     m_groundHitEffect = "NORMAL_UPPER";
@@ -994,37 +1005,40 @@ void USTRObject::ResetStateValues()
     m_airCounterHitEffect = "NORMAL_UPPER";
 
     // Hit Details
-    m_hitGravity = 0;
+    StoreValue("67", 0);
 
-    m_hitPushbackX = 0;
-    m_hitPushbackY = 0;
-    m_hitAirPushbackX = 0;
-    m_hitAirPushbackY = 0;
-    m_counterHitAirPushbackX = 0;
-    m_counterHitAirPushbackY = 0;
+    StoreValue("68", -1);
+    StoreValue("69", 0);
+
+    StoreValue("70", 0);
+    StoreValue("71", 0);
+    StoreValue("72", 0);
+    StoreValue("73", 0);
+    StoreValue("74", 0);
+    StoreValue("75", 0);
 
     // Roll Details
-    m_rollCount = 0;
-    m_rollDuration = 0;
-    m_counterHitRollDuration = 0;
+    StoreValue("76", 0);
+    StoreValue("55", 0);
+    StoreValue("56", 0);
 
     // Wall Stick Details
-    m_wallStickDuration = 0;
-    m_counterHitWallStickDuration = 0;
+    StoreValue("79", 0);
+    StoreValue("80", 0);
 
     // Ground Bounce Details
-    m_groundBounceCount = 0;
-    m_counterHitGroundBounceCount = 0;
-    m_groundBounceYVelocityPercent = 0;
-    m_counterHitGroundBounceYVelocityPercent = 0;
+    StoreValue("81", 0);
+    StoreValue("82", 0);
+    StoreValue("83", 0);
+    StoreValue("84", 0);
 
     // Wall Bounce Details
-    m_wallBounceInCornerOnly = false;
-    m_counterHitWallBounceInCornerOnly = false;
-    m_wallBounceCount = 0;
-    m_wallBounceXVelocityPercent = 0;
-    m_counterHitWallBounceCount = 0;
-    m_counterHitWallBounceXVelocityPercent = 0;
+    StoreValue("85", 0);
+    StoreValue("86", 0);
+    StoreValue("87", 0);
+    StoreValue("88", 0);
+    StoreValue("89", 0);
+    StoreValue("90", 0);
 }
 
 void USTRObject::StateExecution()

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "STRDataSet.h"
+#include "Structures/STRDataSet.h"
 #include "STRObjectRenderer.generated.h"
 
 UCLASS(BlueprintType)

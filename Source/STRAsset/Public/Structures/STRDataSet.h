@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Structures/STRCostume.h"
 #include "STRDataSet.generated.h"
 
 USTRUCT(BlueprintType)
@@ -20,12 +21,19 @@ public:
     
 public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    class USTRMeshArray* MeshArray;
-    
+    class USTRSoundCueArray* SEDataAsset;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TArray<class USTRAnimArray*> AnimArrays;
-    
+    class USTRSoundCueArray* VoiceDataAsset;
+
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    class USTRCameraAnimDataAsset* CameraAnimDataAsset;
+
 public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     class USTRParticleDataAsset* ParticleDataAsset;
+    
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<FSTRCostume> Costumes;
 };

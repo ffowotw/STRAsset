@@ -19,11 +19,8 @@ ASTRCamera::ASTRCamera()
 		0
 	};
 
-	float positionScale = 1 / float(1000);
-	float rotationScale = 1 / float(180);
-
-	m_position = FVector(m_transform.PositionX * positionScale, m_transform.PositionY * positionScale, m_transform.PositionZ * positionScale);
-	m_rotation = FRotator(m_transform.RotationX * rotationScale, m_transform.RotationY * rotationScale, m_transform.RotationZ * rotationScale);
+	m_position = m_transform.GetPosition();
+	m_rotation = m_transform.GetRotation();
 
 	m_cameraComponent->SetWorldLocation(m_position);
 	m_cameraComponent->SetWorldRotation(m_rotation);
@@ -31,11 +28,8 @@ ASTRCamera::ASTRCamera()
 
 void ASTRCamera::Ticking()
 {
-	float positionScale = 1 / float(1000);
-	float rotationScale = 1 / float(180);
-
-	FVector targetPosition = FVector(m_transform.PositionX * positionScale, m_transform.PositionY * positionScale, m_transform.PositionZ * positionScale);
-	FRotator targetRotation = FRotator(m_transform.RotationX * rotationScale, m_transform.RotationY * rotationScale, m_transform.RotationZ * rotationScale);
+	FVector targetPosition = m_transform.GetPosition();
+	FRotator targetRotation = m_transform.GetRotation();
 
 	m_position = targetPosition * 0.15 + m_position * (1 - 0.15);
 	m_rotation = targetRotation * 0.15 + m_rotation * (1 - 0.15);

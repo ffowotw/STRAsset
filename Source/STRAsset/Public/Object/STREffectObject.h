@@ -15,8 +15,8 @@ public:
     virtual void LateTicking() override;
 
 public:
-    bool CanHit() { return m_numberOfHits > 0; }
-    void DecreaseHitNum() { m_numberOfHits--; }
+    bool CanHit() { return GetValue("132") > 0; }
+    void DecreaseHitNum() { ModifyValue("SUB", "132", 1); }
 
     virtual bool CheckRequestedDestroy() override
     {
@@ -71,11 +71,5 @@ private:
 
     int32 m_disableFlag;
 
-    int32 m_numberOfHits = 0;
-
     bool m_destroyRequested;
-    bool m_destroyOnPlayerStateChanged;
-    bool m_destroyOnDamageCollision;
-    bool m_destroyOnEnemyDamage;
-    bool m_destroyOnEnemyGuard;
 };

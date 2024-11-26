@@ -34,14 +34,14 @@ public class STRAssetEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"AssetTools",
 				"CoreUObject",
 				"Engine",
                 "Slate",
 				"SlateCore",
 				"STRAsset",
-				"AssetTools",
+				"PropertyEditor",
 				"UnrealEd",
-				"PropertyEditor"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "STRDataSet.h"
+#include "Structures/STRDataSet.h"
 #include "Renderer/STRObjectRenderer.h"
 #include "STRCharaRenderer.generated.h"
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "STRDataSet.h"
+#include "Structures/STRDataSet.h"
 #include "STRCollisionData.h"
 #include "STRObject.generated.h"
 
@@ -30,13 +30,13 @@ public:
 
     void GetPosition(int32& OutPositionX, int32& OutPositionY)
     {
-        OutPositionX = m_positionX;
-        OutPositionY = m_positionY;
+        OutPositionX = GetValue("200");
+        OutPositionY = GetValue("201");
     }
     void SetPosition(int32 InPositionX, int32 InPositionY)
     {
-        m_positionX = InPositionX;
-        m_positionY = InPositionY;
+        StoreValue("200", InPositionX);
+        StoreValue("201", InPositionY);
 
         TickRender();
     }
@@ -100,6 +100,87 @@ protected:
 protected:
     // Function
     void CallFunction(FString InFunctionName);
+
+protected:
+    // Stored Value
+    bool ContainsValue(FString InKey)
+    {
+        return m_storedVal.Contains(InKey);
+    }
+
+    void StoreValue(FString InKey, int32 InValue)
+    {
+        if (ContainsValue(InKey))
+        {
+            m_storedVal[InKey] = InValue;
+        }
+        else
+        {
+            m_storedVal.Add(InKey, InValue);
+        }
+    }
+
+    int32 GetValue(FString InKey)
+    {
+        if (m_storedVal.Contains(InKey))
+        {
+            return m_storedVal[InKey];
+        }
+
+        return 0;
+    }
+
+    void CopyValue(FString InToKey, FString InFromKey)
+    {
+        if (ContainsValue(InFromKey))
+        {
+            StoreValue(InToKey, GetValue(InFromKey));
+        }
+    }
+
+    void CopyValueFrom(USTRObject* InFromObject, FString InToKey, FString InFromKey)
+    {
+        if (InFromObject->ContainsValue(InFromKey))
+        {
+            StoreValue(InToKey, InFromObject->GetValue(InFromKey));
+        }
+    }
+
+    void ModifyValue(FString InModifyKey, FString InTargetKey, int32 InValue)
+    {
+        if (!ContainsValue(InTargetKey))
+        {
+            return;
+        }
+
+        if (InModifyKey == "ADD")
+        {
+            StoreValue(InTargetKey, GetValue(InTargetKey) + InValue);
+
+            return;
+        }
+
+        if (InModifyKey == "SUB")
+        {
+            StoreValue(InTargetKey, GetValue(InTargetKey) - InValue);
+
+            return;
+        }
+
+        if (InModifyKey == "MUL")
+        {
+            StoreValue(InTargetKey, GetValue(InTargetKey) * InValue);
+
+            return;
+        }
+
+        if (InModifyKey == "DIV")
+        {
+            StoreValue(InTargetKey, GetValue(InTargetKey) / InValue);
+
+            return;
+        }
+    }
 
 protected:
     // Getters
@@ -187,7 +268,7 @@ protected:
     }
     TArray<FSTRCollision> GetCollisions(FString InType)
     {
-        return GetCollisionData()->GetCollisions(InType, m_currentSprite, m_positionX, m_positionY, m_facing);
+        return GetCollisionData()->GetCollisions(InType, m_currentSprite, GetValue("200"), GetValue("201"), m_facing);
     }
 
 	int32 GetAdditionalHitStop(int32 InAttackLevel, bool InCounterHit)
@@ -213,72 +294,72 @@ protected:
     // Setters
     void SetAttackLevel(int32 InAttackLevel)
     {
-        m_attackLevel = InAttackLevel;
+        StoreValue("64", InAttackLevel);
 
         switch (InAttackLevel)
         {
         case 0:
         {
-            m_hitStop = 11;
+            StoreValue("68", 11);
 
-            m_hitPushbackX = 3000;
-            m_hitPushbackY = 0;
-            m_hitAirPushbackX = 0;
-            m_hitAirPushbackY = 3000;
-            m_counterHitAirPushbackX = 3000;
-            m_counterHitAirPushbackY = 0;
+            StoreValue("70", 3000);
+            StoreValue("71", 0);
+            StoreValue("72", 3000);
+            StoreValue("73", 0);
+            StoreValue("74", 3000);
+            StoreValue("75", 0);
 
             break;
         }
         case 1:
         {
-            m_hitStop = 12;
-            
-            m_hitPushbackX = 3500;
-            m_hitPushbackY = 0;
-            m_hitAirPushbackX = 3500;
-            m_hitAirPushbackY = 0;
-            m_counterHitAirPushbackX = 3500;
-            m_counterHitAirPushbackY = 0;
+            StoreValue("68", 12);
+
+            StoreValue("70", 3500);
+            StoreValue("71", 0);
+            StoreValue("72", 3500);
+            StoreValue("73", 0);
+            StoreValue("74", 3500);
+            StoreValue("75", 0);
 
             break;
         }
         case 2:
         {
-            m_hitStop = 13;
-            
-            m_hitPushbackX = 4000;
-            m_hitPushbackY = 0;
-            m_hitAirPushbackX = 4000;
-            m_hitAirPushbackY = 0;
-            m_counterHitAirPushbackX = 4000;
-            m_counterHitAirPushbackY = 0;
+            StoreValue("68", 13);
+
+            StoreValue("70", 4000);
+            StoreValue("71", 0);
+            StoreValue("72", 4000);
+            StoreValue("73", 0);
+            StoreValue("74", 4000);
+            StoreValue("75", 0);
 
             break;
         }
         case 3:
         {
-            m_hitStop = 14;
-            
-            m_hitPushbackX = 4500;
-            m_hitPushbackY = 0;
-            m_hitAirPushbackX = 4500;
-            m_hitAirPushbackY = 0;
-            m_counterHitAirPushbackX = 4500;
-            m_counterHitAirPushbackY = 0;
+            StoreValue("68", 14);
+
+            StoreValue("70", 4500);
+            StoreValue("71", 0);
+            StoreValue("72", 4500);
+            StoreValue("73", 0);
+            StoreValue("74", 4500);
+            StoreValue("75", 0);
 
             break;
         }
         case 4:
         {
-            m_hitStop = 15;
-            
-            m_hitPushbackX = 5000;
-            m_hitPushbackY = 0;
-            m_hitAirPushbackX = 5000;
-            m_hitAirPushbackY = 0;
-            m_counterHitAirPushbackX = 5000;
-            m_counterHitAirPushbackY = 0;
+            StoreValue("68", 15);
+
+            StoreValue("70", 5000);
+            StoreValue("71", 0);
+            StoreValue("72", 5000);
+            StoreValue("73", 0);
+            StoreValue("74", 5000);
+            StoreValue("75", 0);
 
             break;
         }
@@ -320,6 +401,7 @@ protected:
 
     // If Statement
     int32 m_ifStatementLayer;
+    UPROPERTY()
     TArray<bool> m_passedIfStatement;
     bool m_canExecute;
 
@@ -333,67 +415,26 @@ protected:
     int32 m_freezeTime;
     int8 m_facing;
 
-    // Physics
-    int32 m_positionX;
-    int32 m_positionY;
-
-    int32 m_velocityX;
-    int32 m_velocityY;
-
-    int32 m_velocityXPercent;
-    int32 m_velocityYPercent;
-    int32 m_velocityXPercentEachFrame;
-    int32 m_velocityYPercentEachFrame;
-    
-    // Gravity
-    int32 m_gravity = 0;
-
     // Animation
-    bool m_stepFrame;
+    UPROPERTY()
+    FString m_animStatment;
 
     UPROPERTY()
     FString m_currentSprite;
 
     // Throw
-    bool m_isThrow;
-    bool m_canThrowHitStun;
-    int32 m_throwRange;
     UPROPERTY()
     FString m_executeOnHit;
 
-    int32 m_enemyGrabSprite;
-
     // Attack
-    int32 m_damage;
-    int32 m_minDamagePercent;
-    int32 m_proration;
-
-    int32 m_attackLevel;
-    int32 m_attackAngle;
-    bool m_isAirUnblockable;
-
     bool m_noPushbackScaling;
     bool m_noHitstunScaling;
     bool m_noGravityScaling;
 
+    UPROPERTY()
     FString m_guardType;
+    UPROPERTY()
     FString m_counterHitType;
-
-    int32 m_hitStop;
-    bool m_shortHitStop;
-    bool m_disableHitStop;
-
-    // Hit
-    int32 m_hitGravity;
-
-    int32 m_hitPushbackX;
-    int32 m_hitPushbackY;
-
-    int32 m_hitAirPushbackX;
-    int32 m_hitAirPushbackY;
-
-    int32 m_counterHitAirPushbackX;
-    int32 m_counterHitAirPushbackY;
 
     UPROPERTY()
     TArray<USTRObject*> m_hitList;
@@ -409,30 +450,4 @@ protected:
     FString m_groundCounterHitEffect = "NORMAL_UPPER";
     UPROPERTY()
     FString m_airCounterHitEffect = "NORMAL_UPPER";
-
-    // Roll
-    int32 m_rollCount;
-    int32 m_rollDuration;
-    int32 m_counterHitRollDuration;
-
-    // Wall Stick
-    int32 m_wallStickDuration;
-    int32 m_counterHitWallStickDuration;
-    
-    // Ground Bounce
-    int32 m_groundBounceCount;
-    int32 m_groundBounceYVelocityPercent;
-
-    int32 m_counterHitGroundBounceCount;
-    int32 m_counterHitGroundBounceYVelocityPercent;
-
-    // Wal Bounce
-    bool m_wallBounceInCornerOnly;
-    bool m_counterHitWallBounceInCornerOnly;
-
-    int32 m_wallBounceCount;
-    int32 m_counterHitWallBounceCount;
-
-    int32 m_wallBounceXVelocityPercent;
-    int32 m_counterHitWallBounceXVelocityPercent;
 };

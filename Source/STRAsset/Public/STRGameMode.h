@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "STRDataSet.h"
+#include "Structures/STRDataSet.h"
 #include "STRGameMode.generated.h"
 
 UCLASS(BlueprintType)
@@ -28,7 +28,7 @@ public: // Data
 	FString DebugP2 = "";
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<FString, FSTRDataSet> DataSets;
+	class USTRDataArray* DataArray;
 
 public: // Player
 	UPROPERTY()

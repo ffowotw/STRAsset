@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "STRMeshSet.h"
-#include "STRMove.h"
+#include "Structures/STRMeshSet.h"
+#include "Structures/STRMove.h"
 #include "Object/STRObject.h"
 #include "STRChara.generated.h"
 
@@ -19,7 +19,7 @@ public:
     // Tick
     void TickFacing()
     {
-        if ((m_charaState == "JUMPING" && !m_highJumped) || m_moves.Contains(m_currentStateName) || CheckCurrentStateName("CmnActFDash"))
+        if ((m_charaState == "JUMPING" && GetValue("157") != 1) || m_moves.Contains(m_currentStateName) || CheckCurrentStateName("CmnActFDash"))
         {
             return;
         }
@@ -45,11 +45,10 @@ public:
     FString GetCharaState() { return m_charaState; }
 
     void CheckFacing();
-    int32 GetPushboxWidth() { return m_pushboxWidth / 2; }
+    int32 GetPushboxWidth() { return GetValue("153") / 2; }
 
-    bool IsStrikeInvul() { return m_strikeInvul != 0; }
-    bool IsThrowInvul() { return m_throwInvul != 0; }
-    bool IsProjectileInvul() { return m_projectileInvul != 0; }
+    bool IsStrikeInvul() { return GetValue("167") != 0; }
+    bool IsThrowInvul() { return GetValue("168") != 0; }
 
     FString GetCounterState()
     {
@@ -191,21 +190,21 @@ private:
     {
         if (InState == "STANDING")
         {
-            m_pushboxWidth = m_pushboxWidthStand;
-            m_pushboxHeight = m_pushboxHeightStand;
-            m_pushboxHeightLow = 0;
+            CopyValue("153", "125");
+            CopyValue("154", "126");
+            StoreValue("155", 0);
         }
         else if (InState == "CROUCHING")
         {
-            m_pushboxWidth = m_pushboxWidthCrouch;
-            m_pushboxHeight = m_pushboxHeightCrouch;
-            m_pushboxHeightLow = 0;
+            CopyValue("153", "127");
+            CopyValue("154", "128");
+            StoreValue("155", 0);
         }
         else if (InState == "JUMPING")
         {
-            m_pushboxWidth = m_pushboxWidthAir;
-            m_pushboxHeight = m_pushboxHeightAir;
-            m_pushboxHeightLow = m_pushboxHeightLowAir;
+            CopyValue("153", "129");
+            CopyValue("154", "130");
+            CopyValue("155", "131");
         }
         else
         {
@@ -222,12 +221,12 @@ private:
 
     void RestoreAirJump()
     {
-        m_airJumpCount = m_maxAirJumpCount;
-        m_enableJump = true;
+        StoreValue("151", GetValue("100"));
+        StoreValue("161", 1);
     }
     void RestoreAirDash()
     {
-        m_airDashCount = m_maxAirDashCount;
+        StoreValue("152", GetValue("101"));
     }
 
     // Executions
@@ -248,10 +247,10 @@ private:
     {
         return {
             "PUSHBOX",
-            m_positionX - (m_pushboxWidth / 2 * m_facing),
-            m_positionY - m_pushboxHeightLow,
-            m_pushboxWidth * m_facing,
-            m_pushboxHeight
+            GetValue("200") - GetValue("153") / 2,
+            GetValue("201") - GetValue("155"),
+            GetValue("153"),
+            GetValue("154") + GetValue("155")
         };
     };
     
@@ -271,50 +270,6 @@ private:
 
     int32 m_weight;
 	int32 m_defence;
-	int32 m_maxAirJumpCount;
-	int32 m_maxAirDashCount;
-
-    // Walk
-	int32 m_walkFSpeed;
-	int32 m_walkBSpeed;
-
-    // Dash
-	int32 m_dashFInitSpeed;
-	int32 m_dashFAcceleration;
-	int32 m_dashFriction;
-	int32 m_dashBXSpeed;
-	int32 m_dashBYSpeed;
-	int32 m_dashBGravity;
-
-    // Jump
-	int32 m_jumpFXSpeed;
-	int32 m_jumpBXSpeed;
-	int32 m_jumpYSpeed;
-	int32 m_jumpGravity;
-
-    // High jump
-	int32 m_highJumpFXSpeed;
-	int32 m_highJumpBXSpeed;
-	int32 m_highJumpYSpeed;
-	int32 m_highJumpGravity;
-
-    // Air dash
-	int32 m_airDashMinHeight;
-	int32 m_airDashFTime;
-	int32 m_airDashBTime;
-	int32 m_airDashFSpeed;
-	int32 m_airDashBSpeed;
-	int32 m_airDashFNoAttackTime;
-	int32 m_airDashBNoAttackTime;
-
-    // Push box
-	int32 m_pushboxWidthStand;
-	int32 m_pushboxHeightStand;
-	int32 m_pushboxWidthCrouch;
-	int32 m_pushboxHeightCrouch;
-	int32 m_pushboxWidthAir;
-	int32 m_pushboxHeightAir;
-	int32 m_pushboxHeightLowAir;
 
     // Moves
     UPROPERTY()
@@ -341,30 +296,13 @@ private:
     UPROPERTY()
     FString m_charaState = "STANDING";
 
+    UPROPERTY()
     TArray<int32> m_disableFlags;
-
-    int32 m_pushboxWidth;
-    int32 m_pushboxHeight;
-    int32 m_pushboxHeightLow;
-
-    bool m_highJumped;
-
-	int32 m_airJumpCount;
-	int32 m_airDashCount;
-
-    int32 m_airDashTime;
-    int32 m_airDashNoAttackTime;
-
-    bool m_enableJump;
-    bool m_enableNormals;
-    bool m_enableSpecials;
-    bool m_enableJumpCancel;
-    bool m_enableWhiffCancel;
-    bool m_enableSpecialCancel;
 
     // Hit
     bool m_inHitStun;
 
+    UPROPERTY()
     USTRChara* m_hitByChara;
 
     // Input
@@ -404,17 +342,8 @@ private:
     UPROPERTY()
     TArray<FString> m_meshesNotDisplay;
     
-    // Invuls
-    int32 m_strikeInvul = 0;
-    int32 m_throwInvul = 0;
-    int32 m_projectileInvul = 0;
-    
     // Physics
     int32 m_groundedX;
-    int32 m_inertiaPercent = 100;
-
-    // Gravity
-    int32 m_gravityPercent = 100;
 
     // Collision
     bool m_noCollision;

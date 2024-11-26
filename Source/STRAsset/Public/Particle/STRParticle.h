@@ -17,6 +17,9 @@ public:
 
     void Render(int32 InFacing, int32 InPositionX, int32 InPositionY);
 
+    UFUNCTION()
+    void OnParticleEnded(class UNiagaraComponent* InNiagaraComponent);
+
 private:
     UPROPERTY()
     USceneComponent* m_root;

@@ -1,6 +1,7 @@
 #include "STRGameMode.h"
 #include "STRPawn.h"
 #include "Camera/STRCamera.h"
+#include "DataAssets/STRDataArray.h"
 #include "Object/STRChara.h"
 #include "Object/STREffectObject.h"
 #include "Object/STRObject.h"
@@ -175,7 +176,7 @@ void ASTRGameMode::CameraTicking()
             m_cameraLastY = offsetY;
         }
 
-        FTransformStruct transform = {
+        FSTRTransform transform = {
             offsetX,
             // 540000,
             // 106423,
@@ -302,7 +303,8 @@ void ASTRGameMode::CreateObject(USTRObject* InParent, FString InObjectName, FSTR
 
 USTRChara* ASTRGameMode::CreateChara(FString InCharaName, FString InCharaLayer, int32& OutCharaIndex)
 {
-    if (!DataSets.Contains(InCharaName))
+    FSTRDataSet dataSet;
+    if (!DataArray->TryGet(InCharaName, dataSet))
     {
         OutCharaIndex = -1;
 
@@ -316,7 +318,7 @@ USTRChara* ASTRGameMode::CreateChara(FString InCharaName, FString InCharaLayer, 
 
     ASTRCharaRenderer* renderer = GetWorld()->SpawnActor<ASTRCharaRenderer>(ASTRCharaRenderer::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, spawnInfo);
 
-    chara->PreInit(this, charaIndex, InCharaLayer, renderer, DataSets[InCharaName]);
+    chara->PreInit(this, charaIndex, InCharaLayer, renderer, dataSet);
     chara->Init();
 
     m_objectList.Add(chara);
@@ -379,6 +381,11 @@ void ASTRGameMode::DrawCollision(FSTRCollision InCollision, FColor InColor)
     int32 y = InCollision.Y;
     int32 w = InCollision.Width;
     int32 h = InCollision.Height;
+
+    DrawDebugLine(GetWorld(), FVector(x - 5000, 0, y - 5000) / float(1000), FVector(x - 5000, 0, y + 5000) / float(1000), FColor::Black, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x - 5000, 0, y + 5000) / float(1000), FVector(x + 5000, 0, y + 5000) / float(1000), FColor::Black, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x + 5000, 0, y + 5000) / float(1000), FVector(x + 5000, 0, y - 5000) / float(1000), FColor::Black, false, -1, 0, 3);
+    DrawDebugLine(GetWorld(), FVector(x + 5000, 0, y - 5000) / float(1000), FVector(x - 5000, 0, y - 5000) / float(1000), FColor::Black, false, -1, 0, 3);
 
     DrawDebugLine(GetWorld(), FVector(x, 0, y) / float(1000), FVector(x, 0, y + h) / float(1000), InColor, false, -1, 0, 3);
     DrawDebugLine(GetWorld(), FVector(x, 0, y + h) / float(1000), FVector(x + w, 0, y + h) / float(1000), InColor, false, -1, 0, 3);

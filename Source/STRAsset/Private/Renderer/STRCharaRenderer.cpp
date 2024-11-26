@@ -4,12 +4,13 @@
 #include "DataAssets/STRAnimArray.h"
 #include "DataAssets/STRAnimSet.h"
 #include "DataAssets/STRMeshArray.h"
+#include "Structures/STRCostume.h"
 
 void ASTRCharaRenderer::Init(FSTRDataSet InDataSet)
 {
     m_animArray.Empty();
 
-    for (USTRAnimArray* animArray : InDataSet.AnimArrays)
+    for (USTRAnimArray* animArray : InDataSet.Costumes[0].AnimArrays)
     {
         for (const TPair<FString, USTRAnimSet*>& arrayPair : animArray->AnimArray)
         {
@@ -24,7 +25,7 @@ void ASTRCharaRenderer::Init(FSTRDataSet InDataSet)
         }
     }
 
-    for (const TPair<FString, USkeletalMesh*>& pair : InDataSet.MeshArray->Meshes)
+    for (const TPair<FString, USkeletalMesh*>& pair : InDataSet.Costumes[0].MeshArray->Meshes)
     {
         // UE_LOG(LogTemp, Warning, TEXT("%s"), *pair.Key);
 

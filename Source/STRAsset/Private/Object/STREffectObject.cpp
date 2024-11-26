@@ -9,7 +9,8 @@ void USTREffectObject::Init(ASTRGameMode* InGameMode, USTRObject* InParent, FStr
     m_gameMode = InGameMode;
     m_parent = InParent;
 
-    InParent->GetPosition(m_positionX, m_positionY);
+    CopyValueFrom(InParent, "200", "200");
+    CopyValueFrom(InParent, "201", "201");
 
     m_facing = m_parent->GetFacing();
     m_layer = InParent->GetLayer();
@@ -21,7 +22,7 @@ void USTREffectObject::Init(ASTRGameMode* InGameMode, USTRObject* InParent, FStr
 
 void USTREffectObject::LateTicking()
 {
-    if (abs(m_positionX) >= 1600000)
+    if (abs(GetValue("200")) >= 1600000)
     {
         m_destroyRequested = true;
     }
@@ -31,11 +32,11 @@ void USTREffectObject::LateTicking()
 
 void USTREffectObject::OnDamageOrGuard()
 {
-    if (m_destroyOnDamageCollision || m_destroyOnEnemyDamage || m_destroyOnEnemyGuard)
+    if (GetValue("134") == 1 || GetValue("135") == 1 || GetValue("136") == 1)
     {
-        m_numberOfHits--;
+        ModifyValue("SUB", "132", 1);
 
-        if (m_numberOfHits <= 0)
+        if (GetValue("132") <= 0)
         {
             m_destroyRequested = true;
         }
@@ -95,7 +96,7 @@ bool USTREffectObject::StateExecutions(FString InExecutionHeader, TArray<FString
     }
     if (InExecutionHeader == "numberOfHits")
     {
-        m_numberOfHits = GetInt(InValues[0]);
+        StoreValue("132", GetInt(InValues[0]));
     }
 
     // Targeting
@@ -117,25 +118,25 @@ bool USTREffectObject::StateExecutions(FString InExecutionHeader, TArray<FString
     }
     if (InExecutionHeader == "destroyOnPlayerStateChanged")
     {
-        m_destroyOnPlayerStateChanged = GetBool(InValues);
+        StoreValue("133", GetBool(InValues) ? 1 : 0);
         
         return true;
     }
     if (InExecutionHeader == "destroyOnDamageCollision")
     {
-        m_destroyOnDamageCollision = GetBool(InValues);
+        StoreValue("134", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "destroyOnEnemyDamage")
     {
-        m_destroyOnEnemyDamage = GetBool(InValues);
+        StoreValue("135", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "destroyOnEnemyGuard")
     {
-        m_destroyOnEnemyGuard = GetBool(InValues);
+        StoreValue("136", GetBool(InValues) ? 1 : 0);
         
         return true;
     }
@@ -176,7 +177,7 @@ bool USTREffectObject::StateExecutions(FString InExecutionHeader, TArray<FString
         if (particle != nullptr)
         {
             particle->LinkParticle(this);
-            particle->Render(m_facing, m_positionX, m_positionY);
+            particle->Render(m_facing, GetValue("200"), GetValue("201"));
 
             m_particles.Add(particle);
         }

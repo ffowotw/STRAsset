@@ -3,31 +3,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Camera/CameraComponent.h"
+#include "Structures/STRTransform.h"
 #include "STRCamera.generated.h"
 
-USTRUCT()
-struct FTransformStruct
-{
-	GENERATED_BODY()
-	
-public:
-	UPROPERTY()
-	int32 PositionX;
-	UPROPERTY()
-	int32 PositionY;
-	UPROPERTY()
-	int32 PositionZ;
-
-	UPROPERTY()
-	int32 RotationX;
-	UPROPERTY()
-	int32 RotationY;
-	UPROPERTY()
-	int32 RotationZ;
-};
-
-UCLASS()
-class STRASSET_API ASTRCamera : public AActor
+UCLASS(BlueprintType)
+class ASTRCamera : public AActor
 {
 	GENERATED_BODY()
 	
@@ -36,17 +16,14 @@ public:
 
 public:
 	void Ticking();
-	void SetCameraTransform(FTransformStruct InTransform)
+	void SetCameraTransform(FSTRTransform InTransform)
 	{
 		m_transform = InTransform;
 	}
 
 private:
 	UPROPERTY()
-	FTransformStruct m_transform;
-
-	UPROPERTY()
-	TArray<FTransformStruct> m_charatransformList;
+	FSTRTransform m_transform;
 
 private:
 	UPROPERTY()

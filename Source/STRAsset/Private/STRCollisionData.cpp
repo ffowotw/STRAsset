@@ -7,12 +7,12 @@ bool FSTRCollision::CheckCollide(FSTRCollision InCollisionA, FSTRCollision InCol
     if (InCollisionA.X < InCollisionB.X)
     {
         xA = InCollisionA.X + InCollisionA.Width;
-        xB = InCollisionB.X + InCollisionB.Width;
+        xB = InCollisionB.X;
     }
     else
     {
         xA = InCollisionB.X + InCollisionB.Width;
-        xB = InCollisionA.X + InCollisionA.Width;
+        xB = InCollisionA.X;
     }
 
     if (InCollisionA.Y < InCollisionB.Y)
@@ -130,9 +130,10 @@ TArray<FSTRCollision> USTRCollisionData::GetCollisions(FString InType, FString I
         else
         {
             X -= collision.X;
+            X -= collision.Width;
         }
 
-        results.Add({collision.Type, X, InPositionY + collision.Y, collision.Width * InFacing, collision.Height});
+        results.Add({collision.Type, X, InPositionY + collision.Y, collision.Width, collision.Height});
     }
     
     return results;

@@ -1,4 +1,5 @@
 #include "Object/STRChara.h"
+#include "Structures/STRCostume.h"
 #include "STRGameMode.h"
 #include "STRScriptData.h"
 #include "DataAssets/STRMeshArray.h"
@@ -25,7 +26,7 @@ void USTRChara::PreInit(ASTRGameMode* InGameMode, int32 InIndex, FString InLayer
     m_dataSet = InDataSet;
 
     m_meshSets.Empty();
-    m_meshSets.Add("default", { InDataSet.MeshArray->DefaultMeshSet });
+    m_meshSets.Add("default", { InDataSet.Costumes[0].MeshArray->DefaultMeshSet });
 
     m_renderer = InRenderer;
     m_renderer->Init(InDataSet);
@@ -35,9 +36,9 @@ void USTRChara::PreInit(ASTRGameMode* InGameMode, int32 InIndex, FString InLayer
 
 void USTRChara::Init()
 {
-    m_velocityX = 0;
-    m_velocityY = 0;
-    m_gravity = 0;
+    StoreValue("202", 0);
+    StoreValue("203", 0);
+    StoreValue("204", 0);
 
     m_inputX = 0;
     m_inputY = 0;
@@ -53,8 +54,8 @@ void USTRChara::Init()
 
     m_freezeTime = 0;
 
-    m_strikeInvul = 0;
-    m_throwInvul = 0;
+    StoreValue("167", 0);
+    StoreValue("168", 0);
 
     CallFunction("Init");
 
@@ -81,37 +82,37 @@ void USTRChara::EarlyTicking()
 {
     Super::EarlyTicking();
 
-    if (m_strikeInvul > 0)
+    if (GetValue("167") > 0)
     {
-        m_strikeInvul--;
+        ModifyValue("SUB", "167", 1);
     }
 
-    if (m_throwInvul > 0)
+    if (GetValue("168") > 0)
     {
-        m_throwInvul--;
+        ModifyValue("SUB", "168", 1);
     }
 
     TickInputCheck();
     TickCommonActionCheck();
 
-    if (m_inHitStun && m_hitByChara != nullptr && abs(m_positionX + m_velocityX) > 1515000)
+    if (m_inHitStun && m_hitByChara != nullptr && abs(GetValue("200") + GetValue("202")) > 1515000)
     {
-        int32 m_overflowPosition = abs(m_positionX + m_velocityX) - 1515000;
+        int32 m_overflowPosition = abs(GetValue("200") + GetValue("202")) - 1515000;
 
-        if (m_positionX > 0)
+        if (GetValue("200") > 0)
         {
             m_overflowPosition *= -1;
         }
 
-        m_hitByChara->m_positionX += m_overflowPosition;
+        m_hitByChara->ModifyValue("ADD", "200", m_overflowPosition);
     }
 }
 
 void USTRChara::LateTicking()
 {
-    m_positionX = FMath::Clamp(m_positionX, -1515000, 1515000);
+    StoreValue("200", FMath::Clamp(GetValue("200"), -1515000, 1515000));
 
-    if (m_velocityX != 0)
+    if (GetValue("202") != 0)
     {
         TArray<USTRChara*> charaList = m_gameMode->GetCharaList();
 
@@ -128,11 +129,11 @@ void USTRChara::LateTicking()
 
         for(USTRChara* chara : charaList)
         {
-            if (!minXSet || chara->m_positionX < minX)
+            if (!minXSet || chara->GetValue("200") < minX)
             {
                 minXSet = true;
 
-                minX = chara->m_positionX;
+                minX = chara->GetValue("200");
                 
                 if (chara == this)
                 {
@@ -140,11 +141,11 @@ void USTRChara::LateTicking()
                 }
             }
 
-            if (!maxXSet || chara->m_positionX > maxX)
+            if (!maxXSet || chara->GetValue("200") > maxX)
             {
                 maxXSet = true;
 
-                maxX = chara->m_positionX;
+                maxX = chara->GetValue("200");
                 
                 if (chara == this)
                 {
@@ -157,30 +158,30 @@ void USTRChara::LateTicking()
         {
             if (isMinX)
             {
-                m_positionX = maxX - 1365000;
-                minX = m_positionX;
+                StoreValue("200", maxX - 1365000);
+                minX = GetValue("200");
             }
             else if(isMaxX)
             {
-                m_positionX = minX + 1365000;
-                maxX = m_positionX;
+                StoreValue("200", minX + 1365000);
+                maxX = GetValue("200");
             }
         }
     }
 
     if (m_charaState == "JUMPING")
     {
-        if (m_positionY <= 0)
+        if (GetValue("201") <= 0)
         {
-            m_highJumped = false;
-            m_airDashTime = 0;
+            StoreValue("157", 0);
+            StoreValue("158", 0);
         
-            m_positionY = 0;
+            StoreValue("201", 0);
 
-            m_velocityX = 0;
-            m_velocityY = 0;
-            
-            m_gravity = 0;
+            StoreValue("202", 0);
+            StoreValue("203", 0);
+
+            StoreValue("204", 0);
 
             if (CheckCurrentStateName("CmnActDashB"))
             {
@@ -204,7 +205,7 @@ void USTRChara::LateTicking()
     }
     else
     {
-        m_groundedX = m_positionX;
+        m_groundedX = GetValue("200");
     }
 
     Super::LateTicking();
@@ -220,14 +221,14 @@ void USTRChara::LateTicking()
                 JumpToState("CmnActJump");
                 SetCharaState("JUMPING");
 
-                if (m_highJumped)
+                if (GetValue("157") == 1)
                 {
-                    m_enableJump = false;
+                    StoreValue("161", 0);
                 }
 
-                m_velocityX = m_storedVal["VelocityX"];
-                m_velocityY = m_storedVal["VelocityY"];
-                m_gravity = m_storedVal["Gravity"];
+                CopyValue("202", "VelocityX");
+                CopyValue("203", "VelocityY");
+                CopyValue("204", "Gravity");
             }
             else
             {
@@ -236,11 +237,6 @@ void USTRChara::LateTicking()
 
             StateExecution();
         }
-        
-        // if (m_layer == "P1")
-        // {
-        //     UE_LOG(LogTemp, Warning, TEXT("CURRENT: %i, %i >> MAX: %i"), m_stateExecutionIndex, m_stateExecutionCountdown, subroutineLength);
-        // }
     }
 }
 
@@ -284,7 +280,7 @@ void USTRChara::TickInputCheck()
             {
                 if (move.Type != "NORMAL")
                 {
-                    if (m_storedVal["frame"] > 5)
+                    if (GetValue("156") > 5)
                     {
                         continue;
                     }
@@ -303,11 +299,16 @@ void USTRChara::TickInputCheck()
                         continue;
                     }
 
+                    if (move.Type == "SPECIAL" && GetValue("166") != 1)
+                    {
+                        continue;
+                    }
+
                     // UE_LOG(LogTemp, Warning, TEXT("HIT CANCEL"));
                 }
                 else
                 {
-                    if (!m_enableWhiffCancel || !m_whiffCancels.Contains(m_moveKeys[i]))
+                    if (GetValue("165") != 1 || !m_whiffCancels.Contains(m_moveKeys[i]))
                     {
                         continue;
                     }
@@ -342,22 +343,24 @@ void USTRChara::TickInputCheck()
             continue;
         }
 
+        if (move.Type == "NORMAL" && GetValue("162") == 0)
+        {
+            continue;
+        }
+
+        if (move.Type == "SPECIAL" && GetValue("163") == 0)
+        {
+            continue;
+        }
+
         JumpToState(m_moveKeys[i]);
 
-        if (move.Type == "NORMAL")
-        {
-            m_enableJumpCancel = true;
-            m_enableWhiffCancel = true;
-            m_enableSpecialCancel = true;
-        }
-        else
+        if (move.Type != "NORMAL")
         {
             for (int32 j = 0; j < m_buttonBuffer.Num(); j++)
             {
                 m_buttonBuffer[j] = 0;
             }
-
-            m_storedVal["frame"] = 0;
         }
         
         break;
@@ -381,14 +384,14 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
 
     if (m_moves.Contains(m_currentStateName))
     {
-        float friction = float(m_dashFriction) / 100;
-        float newVelocityX = float(m_velocityX) * friction * friction * (float(m_inertiaPercent) / 100);
+        float friction = float(GetValue("106")) / 100;
+        float newVelocityX = float(GetValue("202")) * friction * friction * (float(GetValue("56")) / 100);
 
-        m_velocityX = FMath::FloorToInt(newVelocityX);
+        StoreValue("202", FMath::FloorToInt(newVelocityX));
 
-        if (abs(m_velocityX) <= m_walkFSpeed)
+        if (abs(GetValue("202")) <= GetValue("102"))
         {
-            m_velocityX = 0;
+            StoreValue("202", 0);
         }
 
         if (!InMoveEnded)
@@ -397,55 +400,55 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         }
     }
 
-    if (m_airDashTime > 0)
+    if (GetValue("158") > 0)
     {
-        m_velocityX -= m_velocityX / 50;
+        ModifyValue("SUB", "202", GetValue("202") / 50);
 
-        if (m_velocityY > 0)
+        if (GetValue("203") > 0)
         {
-            m_velocityY -= m_velocityY / 2;
+            ModifyValue("SUB", "203", GetValue("203") / 2);
         }
         else
         {
-            m_velocityY = 0;
+            StoreValue("203", 0);
         }
 
-        m_airDashTime--;
+        ModifyValue("SUB", "158", 1);
 
-        if (m_airDashTime == m_storedVal["AirDashTime"] - 5)
+        if (GetValue("158") == GetValue("159") - 5)
         {
-            m_velocityY = 0;
+            StoreValue("203", 0);
         }
-        else if (m_airDashTime == 0)
+        else if (GetValue("158") == 0)
         {
             JumpToState("CmnActJump");
             GotoLabel("down");
 
-            m_velocityX -= m_velocityX / 4;
+            ModifyValue("SUB", "202", GetValue("202") / 4);
 
-            if (m_positionY > 0)
+            if (GetValue("201") > 0)
             {
-                m_gravity = m_highJumped ? m_highJumpGravity : m_jumpGravity;
+                CopyValue("204", GetValue("157") == 1 ? "117" : "113");
             }
             else
             {
-                m_positionY = 0;
-                m_velocityY = 0;
-                m_gravity = 0;
+                StoreValue("201", 0);
+                StoreValue("203", 0);
+                StoreValue("204", 0);
             }
 
-            if (m_airJumpCount <= 0)
+            if (GetValue("151") <= 0)
             {
-                m_enableJump = false;
+                StoreValue("161", 0);
             }
         }
 
         return;
     }
 
-    if (m_airDashNoAttackTime > 0)
+    if (GetValue("160") > 0)
     {
-        m_airDashNoAttackTime--;
+        ModifyValue("SUB", "160", 1);
 
         return;
     }
@@ -454,26 +457,24 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
     {
         if (m_inputX * m_facing <= 0)
         {
-            m_storedVal["frame"] = 0;
-
             JumpToState("CmnActFDashStop");
 
             return;
         }
 
-        m_velocityX += m_dashFAcceleration * m_facing;
-        m_velocityX -= m_velocityX / m_dashFriction;
+        ModifyValue("ADD", "202", GetValue("105") * m_facing);
+        ModifyValue("SUB", "202", GetValue("202") / GetValue("106"));
     }
     else if (CheckCurrentStateName("CmnActFDashStop"))
     {
-        float friction = float(m_dashFriction) / 100;
-        float newVelocityX = float(m_velocityX) * friction * friction;
+        float friction = float(GetValue("106")) / 100;
+        float newVelocityX = float(GetValue("202")) * friction * friction;
 
-        m_velocityX = FMath::FloorToInt(newVelocityX);
+        StoreValue("202", FMath::FloorToInt(newVelocityX));
 
-        if (m_storedVal["frame"] >= 15)
+        if (GetValue("156") >= 15)
         {
-            m_velocityX = 0;
+            StoreValue("202", 0);
         }
     }
     else if (CheckCurrentStateName("CmnActJumpPre"))
@@ -486,13 +487,13 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
 
     if (m_inputY > 0)
     {
-        if (m_enableJump)
+        if (GetValue("161") == 1)
         {
-            if (m_charaState != "JUMPING" && (m_enableJump || m_moves.Contains(m_currentStateName) && m_enableJumpCancel))
+            if (m_charaState != "JUMPING" && (GetValue("161") == 1 || m_moves.Contains(m_currentStateName) && GetValue("164") == 1))
             {
                 if (CheckInput("INPUT_CHARGE_DOWN_UP_1F"))
                 {
-                    m_highJumped = true;
+                    StoreValue("157", 1);
 
                     if (m_inputX * m_facing > 0)
                     {
@@ -556,7 +557,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
             }
         }
     }
-    else if (!(CheckCurrentStateName("CmnActFDashStop") && m_velocityX > 0))
+    else if (!(CheckCurrentStateName("CmnActFDashStop") && GetValue("202") > 0))
     {
         if (m_inputX * m_facing > 0)
         {
@@ -570,9 +571,9 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
                     }
                     else
                     {
-                        if (m_airDashCount > 0)
+                        if (GetValue("152") > 0)
                         {
-                            if((m_velocityY > 0 && m_positionY >= m_airDashMinHeight) || m_velocityY <= 0)
+                            if((GetValue("203") > 0 && GetValue("201") >= GetValue("118")) || GetValue("203") <= 0)
                             {
                                 newState = "CmnFAirDash";
                             }
@@ -604,7 +605,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
                     }
                     else
                     {
-                        if (m_airDashCount > 0 && m_positionY >= m_airDashMinHeight)
+                        if (GetValue("152") > 0 && GetValue("201") >= GetValue("118"))
                         {
                             newState = "CmnBAirDash";
                         }
@@ -644,7 +645,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
 
     if (newState == "CmnNeutral")
     {
-        m_velocityX = 0;
+        StoreValue("202", 0);
 
         if (m_charaState == "STANDING")
         {
@@ -683,7 +684,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         JumpToState("CmnActFWalk");
         SetCharaState("STANDING");
 
-        m_velocityX = m_walkFSpeed * m_facing;
+        StoreValue("202", GetValue("102") * m_facing);
     }
     else if (newState == "CmnFDash")
     {
@@ -695,7 +696,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         JumpToState("CmnActFDash");
         SetCharaState("STANDING");
 
-        m_velocityX = m_dashFInitSpeed * m_facing;
+        StoreValue("202", GetValue("104") * m_facing);
     }
     else if (newState == "CmnBWalk")
     {
@@ -707,7 +708,7 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         JumpToState("CmnActBWalk");
         SetCharaState("STANDING");
 
-        m_velocityX = m_walkBSpeed * m_facing;
+        StoreValue("202", GetValue("103") * m_facing);
     }
     else if (newState == "CmnBDash")
     {
@@ -719,11 +720,11 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         JumpToState("CmnActBDash");
         SetCharaState("JUMPING");
 
-        m_enableJump = false;
+        StoreValue("161", 0);
 
-        m_velocityX = m_dashBXSpeed * m_facing;
-        m_velocityY = m_dashBYSpeed;
-        m_gravity = m_dashBGravity;
+        StoreValue("202", GetValue("107") * m_facing);
+        CopyValue("203", "108");
+        CopyValue("204", "109");
     }
     else if (newState == "CmnVJump")
     {
@@ -731,17 +732,17 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         {
             JumpToState("CmnActJump");
 
-            m_airJumpCount--;
-            m_airDashCount = 0;
+            ModifyValue("SUB", "151", 1);
+            StoreValue("152", 0);
 
-            if (m_airJumpCount <= 0)
+            if (GetValue("151") <= 0)
             {
-                m_enableJump = false;
+                StoreValue("161", 0);
             }
 
-            m_velocityX = 0;
-            m_velocityY = m_jumpYSpeed;
-            m_gravity = m_jumpGravity;
+            StoreValue("202", 0);
+            CopyValue("203", "112");
+            CopyValue("204", "113");
 
             CheckFacing();
         }
@@ -753,16 +754,16 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
             }
 
             JumpToState("CmnActJumpPre");
-            m_highJumped = false;
+            StoreValue("157", 0);
 
             RestoreAirJump();
             RestoreAirDash();
 
-            m_storedVal.Add("VelocityX", 0);
-            m_storedVal.Add("VelocityY", m_jumpYSpeed);
+            StoreValue("VelocityX", 0);
+            CopyValue("VelocityY", "112");
         }
 
-        m_storedVal.Add("Gravity", m_jumpGravity);
+        CopyValue("Gravity", "113");
     }
     else if (newState == "CmnFJump")
     {
@@ -770,17 +771,17 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         {
             JumpToState("CmnActJump");
 
-            m_airJumpCount--;
-            m_airDashCount = 0;
+            ModifyValue("SUB", "151", 1);
+            StoreValue("152", 0);
 
-            if (m_airJumpCount <= 0)
+            if (GetValue("151") <= 0)
             {
-                m_enableJump = false;
+                StoreValue("161", 0);
             }
 
-            m_velocityX = m_jumpFXSpeed * m_facing;
-            m_velocityY = m_jumpYSpeed;
-            m_gravity = m_jumpGravity;
+            StoreValue("202", GetValue("110") * m_facing);
+            CopyValue("203", "112");
+            CopyValue("204", "113");
 
             CheckFacing();
         }
@@ -792,40 +793,40 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
             }
 
             JumpToState("CmnActJumpPre");
-            m_highJumped = false;
+            StoreValue("157", 0);
 
             RestoreAirJump();
             RestoreAirDash();
 
-            if (m_velocityX * m_facing < m_jumpFXSpeed)
+            if (abs(GetValue("202")) <= GetValue("110"))
             {
-                m_storedVal.Add("VelocityX", m_jumpFXSpeed * m_facing);
+                StoreValue("VelocityX", GetValue("110") * m_facing);
             }
             else
             {
-                m_storedVal.Add("VelocityX", m_dashFInitSpeed * m_facing);
+                StoreValue("VelocityX", GetValue("104") * m_facing);
             }
             
-            m_storedVal.Add("VelocityY", m_jumpYSpeed);
+            CopyValue("VelocityY", "112");
         }
         
-        m_storedVal.Add("Gravity", m_jumpGravity);
+        CopyValue("Gravity", "113");
     }
     else if (newState == "CmnBJump")
     {
         if (m_charaState == "JUMPING")
         {
-            m_airJumpCount--;
-            m_airDashCount = 0;
+            ModifyValue("SUB", "151", 1);
+            StoreValue("152", 0);
 
-            if (m_airJumpCount <= 0)
+            if (GetValue("151") <= 0)
             {
-                m_enableJump = false;
+                StoreValue("161", 0);
             }
 
-            m_velocityX = m_jumpBXSpeed * m_facing;
-            m_velocityY = m_jumpYSpeed;
-            m_gravity = m_jumpGravity;
+            StoreValue("202", GetValue("111") * m_facing);
+            CopyValue("203", "112");
+            CopyValue("204", "113");
 
             CheckFacing();
         }
@@ -837,16 +838,16 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
             }
 
             JumpToState("CmnActJumpPre");
-            m_highJumped = false;
+            StoreValue("157", 0);
 
             RestoreAirJump();
             RestoreAirDash();
 
-            m_storedVal.Add("VelocityX", m_jumpBXSpeed * m_facing);
-            m_storedVal.Add("VelocityY", m_jumpYSpeed);
+            StoreValue("VelocityX", GetValue("111") * m_facing);
+            CopyValue("VelocityY", "112");
         }
         
-        m_storedVal.Add("Gravity", m_jumpGravity);
+        CopyValue("Gravity", "113");
     }
     else if (newState == "CmnVHighJump")
     {
@@ -856,16 +857,16 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         }
 
         JumpToState("CmnActJumpPre");
-        m_highJumped = true;
+        StoreValue("157", 1);
         
         RestoreAirDash();
 
-        m_airJumpCount = 0;
-        m_enableJump = false;
+        StoreValue("151", 0);
+        StoreValue("161", 0);
 
-        m_storedVal.Add("VelocityX", 0);
-        m_storedVal.Add("VelocityY", m_highJumpYSpeed);
-        m_storedVal.Add("Gravity", m_highJumpGravity);
+        StoreValue("VelocityX", 0);
+        CopyValue("VelocityY", "116");
+        CopyValue("Gravity", "117");
     }
     else if (newState == "CmnFHighJump")
     {
@@ -875,16 +876,16 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         }
 
         JumpToState("CmnActJumpPre");
-        m_highJumped = true;
+        StoreValue("157", 1);
         
         RestoreAirDash();
 
-        m_airJumpCount = 0;
-        m_enableJump = false;
+        StoreValue("151", 0);
+        StoreValue("161", 0);
 
-        m_storedVal.Add("VelocityX", m_highJumpFXSpeed * m_facing);
-        m_storedVal.Add("VelocityY", m_highJumpYSpeed);
-        m_storedVal.Add("Gravity", m_highJumpGravity);
+        StoreValue("VelocityX", GetValue("114") * m_facing);
+        CopyValue("VelocityY", "116");
+        CopyValue("Gravity", "117");
     }
     else if (newState == "CmnBHighJump")
     {
@@ -894,16 +895,16 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         }
 
         JumpToState("CmnActJumpPre");
-        m_highJumped = true;
+        StoreValue("157", 1);
         
         RestoreAirDash();
 
-        m_airJumpCount = 0;
-        m_enableJump = false;
+        StoreValue("151", 0);
+        StoreValue("161", 0);
 
-        m_storedVal.Add("VelocityX", m_highJumpBXSpeed * m_facing);
-        m_storedVal.Add("VelocityY", m_highJumpYSpeed);
-        m_storedVal.Add("Gravity", m_highJumpGravity);
+        StoreValue("VelocityX", GetValue("115") * m_facing);
+        CopyValue("VelocityY", "116");
+        CopyValue("Gravity", "117");
     }
     else if (newState == "CmnFAirDash")
     {
@@ -913,20 +914,18 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
         }
 
         JumpToState("CmnActAirFDash");
-        
-        m_airDashTime = m_airDashFTime;
-        m_airDashNoAttackTime = m_airDashFNoAttackTime;
 
-        m_storedVal.Add("AirDashTime", m_airDashTime);
+        CopyValue("158", "119");
+        CopyValue("159", "158");
+        CopyValue("160", "123");
 
-        m_enableJump = false;
+        StoreValue("161", 0);
 
-        m_airJumpCount--;
-        m_airDashCount--;
+        ModifyValue("SUB", "151", 1);
+        ModifyValue("SUB", "152", 1);
 
-        m_velocityX = m_airDashFSpeed * m_facing;
-        
-        m_gravity = 0;
+        StoreValue("202", GetValue("121") * m_facing);
+        StoreValue("204", 0);
     }
     else if (newState == "CmnBAirDash")
     {
@@ -937,18 +936,17 @@ void USTRChara::TickCommonActionCheck(bool InMoveEnded)
 
         JumpToState("CmnActAirBDash");
         
-        m_airDashTime = m_airDashBTime;
-        m_airDashNoAttackTime = m_airDashBNoAttackTime;
+        CopyValue("158", "120");
+        CopyValue("159", "158");
+        CopyValue("160", "124");
 
-        m_storedVal.Add("AirDashTime", m_airDashTime);
-
-        m_enableJump = false;
+        StoreValue("161", 0);
         
-        m_airJumpCount--;
-        m_airDashCount--;
+        ModifyValue("SUB", "151", 1);
+        ModifyValue("SUB", "152", 1);
 
-        m_velocityX = m_airDashBSpeed * m_facing;
-        m_gravity = 0;
+        StoreValue("202", GetValue("122") * m_facing);
+        StoreValue("204", 0);
     }
 }
 
@@ -963,7 +961,7 @@ void USTRChara::TickPushboxCheck()
     {
         if (FSTRCollision::CheckCollide(GetPushbox(), opponentCharaList[i]->GetPushbox()))
         {
-            int32 distance = opponentCharaList[i]->m_positionX - m_positionX;
+            int32 distance = opponentCharaList[i]->GetValue("200") - GetValue("200");
 
             if (minIndex == -1 || abs(distance) < abs(minDistance))
             {
@@ -978,15 +976,17 @@ void USTRChara::TickPushboxCheck()
         return;
     }
 
+    USTRChara* chara = opponentCharaList[minIndex];
+
     FSTRCollision pushboxA = GetPushbox();
-    FSTRCollision pushboxB = opponentCharaList[minIndex]->GetPushbox();
+    FSTRCollision pushboxB = chara->GetPushbox();
 
-    int32 xA = pushboxA.X + pushboxA.Width;
-    int32 xB = pushboxB.X + pushboxB.Width;
+    int32 xA = pushboxA.X;
+    int32 xB = pushboxB.X;
 
-    if (abs(m_groundedX) >= abs(opponentCharaList[minIndex]->m_groundedX))
+    if (GetValue("200") > chara->GetValue("200") || (GetValue("200") == chara->GetValue("200") && abs(m_groundedX) >= abs(chara->m_groundedX)))
     {
-        if (minDistance > 0 || (minDistance == 0 && m_groundedX < opponentCharaList[minIndex]->m_groundedX))
+        if (minDistance > 0 || (minDistance == 0 && m_groundedX < chara->m_groundedX))
         {
             if (xA % 2 != 0)
             {
@@ -1011,20 +1011,29 @@ void USTRChara::TickPushboxCheck()
             }
         }
 
+        if (chara->GetValue("200") > GetValue("200"))
+        {
+            xA += pushboxA.Width;
+        }
+        else
+        {
+            xB += pushboxB.Width;
+        }
+
         int32 pushDistance = (xA - xB) / 2;
         int32 offsetDistance = 0;
 
-        m_positionX -= pushDistance;
+        ModifyValue("SUB", "200", pushDistance);
 
-        if (abs(m_positionX) > 1515000)
+        if (abs(GetValue("200")) > 1515000)
         {
-            offsetDistance = 1515000 - abs(m_positionX);
-            offsetDistance *= m_positionX > 0 ? 1 : -1;
+            offsetDistance = 1515000 - abs(GetValue("200"));
+            offsetDistance *= GetValue("200") > 0 ? 1 : -1;
 
-            m_positionX += offsetDistance;
+            ModifyValue("ADD", "200", offsetDistance);
         }
 
-        opponentCharaList[minIndex]->m_positionX += pushDistance + offsetDistance;
+        chara->ModifyValue("ADD", "200", pushDistance + offsetDistance);
     }
 }
 
@@ -1065,7 +1074,7 @@ void USTRChara::CheckFacing()
         {
             USTRChara* chara = opponents[0];
 
-            int32 newFacing = FMath::Clamp(chara->m_positionX - m_positionX, -1, 1);
+            int32 newFacing = FMath::Clamp(chara->GetValue("200") - GetValue("200"), -1, 1);
 
             if (newFacing != 0 && newFacing != m_facing)
             {
@@ -1471,8 +1480,8 @@ bool USTRChara::CheckInput(FString InInput)
         FString input = InInput.Mid(6);
 
         checkingKeys = TArray<FString> {
-            "66",
-            "22",
+            "74",
+            "112",
             "236",
             "214",
             "623",
@@ -1778,7 +1787,7 @@ bool USTRChara::Execute(FString InExecutionHeader, TArray<FString> InValues)
     }
     if (InExecutionHeader == "checkInput")
     {
-        m_storedVal["Tmp"] = CheckInput(GetString(InValues[0])) ? 1 : 0;
+        StoreValue("Tmp", CheckInput(GetString(InValues[0])) ? 1 : 0);
 
         return true;
     }
@@ -1826,27 +1835,15 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
         return true;
     }
     
-    if (InExecutionHeader == "weight")
-    {
-        m_weight = GetInt(InValues[0]);
-
-        return true;
-    }
-    if (InExecutionHeader == "defence")
-    {
-        m_defence = GetInt(InValues[0]);
-
-        return true;
-    }
     if (InExecutionHeader == "airJumpCount")
     {
-        m_maxAirJumpCount = GetInt(InValues[0]);
+        StoreValue("100", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashCount")
     {
-        m_maxAirDashCount = GetInt(InValues[0]);
+        StoreValue("101", GetInt(InValues[0]));
 
         return true;
     }
@@ -1854,13 +1851,13 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // Walk
     if (InExecutionHeader == "walkFSpeed")
     {
-        m_walkFSpeed = GetInt(InValues[0]);
+        StoreValue("102", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "walkBSpeed")
     {
-        m_walkBSpeed = -GetInt(InValues[0]);
+        StoreValue("103", -GetInt(InValues[0]));
 
         return true;
     }
@@ -1868,37 +1865,37 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // Dash
     if (InExecutionHeader == "dashFInitSpeed")
     {
-        m_dashFInitSpeed = GetInt(InValues[0]);
+        StoreValue("104", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "dashFAcceleration")
     {
-        m_dashFAcceleration = GetInt(InValues[0]);
+        StoreValue("105", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "dashFriction")
     {
-        m_dashFriction = GetInt(InValues[0]);
+        StoreValue("106", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "dashBXSpeed")
     {
-        m_dashBXSpeed = -GetInt(InValues[0]);
+        StoreValue("107", -GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "dashBYSpeed")
     {
-        m_dashBYSpeed = GetInt(InValues[0]);
+        StoreValue("108", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "dashBGravity")
     {
-        m_dashBGravity = GetInt(InValues[0]);
+        StoreValue("109", GetInt(InValues[0]));
 
         return true;
     }
@@ -1906,25 +1903,25 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // Jump
     if (InExecutionHeader == "jumpFXSpeed")
     {
-        m_jumpFXSpeed = GetInt(InValues[0]);
+        StoreValue("110", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "jumpBXSpeed")
     {
-        m_jumpBXSpeed = -GetInt(InValues[0]);
+        StoreValue("111", -GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "jumpYSpeed")
     {
-        m_jumpYSpeed = GetInt(InValues[0]);
+        StoreValue("112", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "jumpGravity")
     {
-        m_jumpGravity = GetInt(InValues[0]);
+        StoreValue("113", GetInt(InValues[0]));
 
         return true;
     }
@@ -1932,25 +1929,25 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // High Jump
     if (InExecutionHeader == "highJumpFXSpeed")
     {
-        m_highJumpFXSpeed = GetInt(InValues[0]);
+        StoreValue("114", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "highJumpBXSpeed")
     {
-        m_highJumpBXSpeed = -GetInt(InValues[0]);
+        StoreValue("115", -GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "highJumpYSpeed")
     {
-        m_highJumpYSpeed = GetInt(InValues[0]);
+        StoreValue("116", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "highJumpGravity")
     {
-        m_highJumpGravity = GetInt(InValues[0]);
+        StoreValue("117", GetInt(InValues[0]));
 
         return true;
     }
@@ -1958,43 +1955,43 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // Air dash
     if (InExecutionHeader == "airDashMinHeight")
     {
-        m_airDashMinHeight = GetInt(InValues[0]);
+        StoreValue("118", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashFTime")
     {
-        m_airDashFTime = GetInt(InValues[0]);
+        StoreValue("119", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashBTime")
     {
-        m_airDashBTime = GetInt(InValues[0]);
+        StoreValue("120", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashFSpeed")
     {
-        m_airDashFSpeed = GetInt(InValues[0]);
+        StoreValue("121", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashBSpeed")
     {
-        m_airDashBSpeed = -GetInt(InValues[0]);
+        StoreValue("122", -GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashFNoAttackTime")
     {
-        m_airDashFNoAttackTime = GetInt(InValues[0]);
+        StoreValue("123", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "airDashBNoAttackTime")
     {
-        m_airDashBNoAttackTime = GetInt(InValues[0]);
+        StoreValue("124", GetInt(InValues[0]));
 
         return true;
     }
@@ -2002,43 +1999,43 @@ bool USTRChara::FunctionExecutions(FString InExecutionHeader, TArray<FString> In
     // Push box
     if (InExecutionHeader == "pushboxWidthStand")
     {
-        m_pushboxWidthStand = GetInt(InValues[0]);
+        StoreValue("125", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxHeightStand")
     {
-        m_pushboxHeightStand = GetInt(InValues[0]);
+        StoreValue("126", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxWidthCrouch")
     {
-        m_pushboxWidthCrouch = GetInt(InValues[0]);
+        StoreValue("127", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxHeightCrouch")
     {
-        m_pushboxHeightCrouch = GetInt(InValues[0]);
+        StoreValue("128", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxWidthAir")
     {
-        m_pushboxWidthAir = GetInt(InValues[0]);
+        StoreValue("129", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxHeightAir")
     {
-        m_pushboxHeightAir = GetInt(InValues[0]);
+        StoreValue("130", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "pushboxHeightLowAir")
     {
-        m_pushboxHeightLowAir = GetInt(InValues[0]);
+        StoreValue("131", GetInt(InValues[0]));
 
         return true;
     }
@@ -2164,7 +2161,7 @@ bool USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
     // Animation
     if (InExecutionHeader == "playAnimation")
     {
-        m_stepFrame = false;
+        m_animStatment = "ANIMATION";
 
         m_currentAnimation = GetString(InValues[0]);
     
@@ -2212,53 +2209,41 @@ bool USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
     }
     // TODO: mouth things
 
-    // Physics
-    if (InExecutionHeader == "inertiaPercent")
-    {
-        m_inertiaPercent = GetInt(InValues[0]);
-        
-        return true;
-    }
-    if (InExecutionHeader == "gravityPercent")
-    {
-        m_gravityPercent = 100;
-    }
-    
     // Invuls
-    if (InExecutionHeader == "setStrikeInvul")
+    if (InExecutionHeader == "setInvul")
     {
-        m_strikeInvul = GetBool(InValues) ? -1 : 0;
-    
-        return true;
-    }
-    if (InExecutionHeader == "setThrowInvul")
-    {
-        m_throwInvul = GetBool(InValues) ? -1 : 0;
-    
-        return true;
-    }
-    if (InExecutionHeader == "setProjectileInvul")
-    {
-        m_projectileInvul = GetBool(InValues) ? -1 : 0;
-    
-        return true;
-    }
-    if (InExecutionHeader == "strickInvulForTime")
-    {
-        m_strikeInvul = GetInt(InValues[0]);
+        FString key = "";
+        FString type = GetEnum(InValues[0]);
 
-        return true;
-    }
-    if (InExecutionHeader == "throwInvulForTime")
-    {
-        m_throwInvul = GetInt(InValues[0]);
+        if (type == "STRIKE")
+        {
+            key = "167";
+        }
+        else if (type == "THROW")
+        {
+            key = "168";
+        }
+
+        StoreValue(key, GetBool(InValues[1]) ? -1 : 0);
     
         return true;
     }
-    if (InExecutionHeader == "projectileInvulForTime")
+    if (InExecutionHeader == "setInvulForTime")
     {
-        m_projectileInvul = GetInt(InValues[0]);
-    
+        FString key = "";
+        FString type = GetEnum(InValues[0]);
+
+        if (type == "STRIKE")
+        {
+            key = "167";
+        }
+        else if (type == "THROW")
+        {
+            key = "168";
+        }
+
+        StoreValue(key, GetInt(InValues[0]));
+
         return true;
     }
     
@@ -2381,19 +2366,19 @@ bool USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
     // Pushbox Height
     if (InExecutionHeader == "setNoCollision")
     {
-        m_noCollision = GetBool(InValues);
+        StoreValue("169", GetBool(InValues) ? 1 : 0);
     
         return true;
     }
     if (InExecutionHeader == "setPushboxHeight")
     {
-        m_pushboxHeight = GetInt(InValues[0]);
+        StoreValue("154", GetInt(InValues[0]));
 
         return true;
     }
     if (InExecutionHeader == "setPushboxHeightLow")
     {
-        m_pushboxHeightLow = GetInt(InValues[0]);
+        StoreValue("155", GetInt(InValues[0]));
 
         return true;
     }
@@ -2401,37 +2386,37 @@ bool USTRChara::StateExecutions(FString InExecutionHeader, TArray<FString> InVal
     // Enables
     if (InExecutionHeader == "enableJump")
     {
-        m_enableJump = GetBool(InValues[0]);
+        StoreValue("161", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "enableNormals")
     {
-        m_enableNormals = GetBool(InValues[0]);
+        StoreValue("162", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "enableSpecials")
     {
-        m_enableSpecials = GetBool(InValues[0]);
+        StoreValue("163", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "enableJumpCancel")
     {
-        m_enableJumpCancel = GetBool(InValues[0]);
+        StoreValue("164", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "enableWhiffCancel")
     {
-        m_enableWhiffCancel = GetBool(InValues[0]);
+        StoreValue("165", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
     if (InExecutionHeader == "enableSpecialCancel")
     {
-        m_enableSpecialCancel = GetBool(InValues[0]);
+        StoreValue("166", GetBool(InValues) ? 1 : 0);
 
         return true;
     }
@@ -2455,49 +2440,29 @@ void USTRChara::ResetStateValues()
     
     m_state = m_moves.Contains(m_currentStateName) ? "STARTUP_STATE" : "NONE";
 
-    m_inertiaPercent = 100;
-    m_gravityPercent = 100;
-
     // Invul
-    if (m_strikeInvul == -1)
+    if (GetValue("167") == -1)
     {
-        m_strikeInvul = 0;
+        StoreValue("167", 0);
     }
 
-    if (m_throwInvul == -1)
+    if (GetValue("168") == -1)
     {
-        m_throwInvul = 0;
+        StoreValue("168", 0);
     }
-    
-    m_noCollision = false;
 
-    // Throw Details
-    m_isThrow = false;
-    m_canThrowHitStun = false;
-    m_throwRange = 0;
-    m_executeOnHit = "";
-
-    m_enemyGrabSprite = -1;
+    // Pushbox    
+    StoreValue("169", 0);
 
     // Cancels
     m_whiffCancels.Empty();
     m_hitCancels.Empty();
 
     // Enables
-    if (!m_moves.Contains(m_currentStateName))
-    {
-        m_enableJump = true;
-        m_enableNormals = true;
-        m_enableSpecials = true;
-    }
-    else
-    {
-        m_enableJump = false;
-        m_enableNormals = false;
-        m_enableSpecials = false;
-    }
-
-    m_enableJumpCancel = false;
-    m_enableWhiffCancel = false;
-    m_enableSpecialCancel = false;
+    StoreValue("161", 1);
+    StoreValue("162", 1);
+    StoreValue("163", 1);
+    StoreValue("164", 1);
+    StoreValue("165", 1);
+    StoreValue("166", 1);
 }
