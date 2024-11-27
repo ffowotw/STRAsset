@@ -139,6 +139,10 @@ void USTRChara::LateTicking()
                 {
                     isMinX = true;
                 }
+                else
+                {
+                    isMinX = false;
+                }
             }
 
             if (!maxXSet || chara->GetValue("200") > maxX)
@@ -150,6 +154,10 @@ void USTRChara::LateTicking()
                 if (chara == this)
                 {
                     isMaxX = true;
+                }
+                else
+                {
+                    isMaxX = false;
                 }
             }
         }
