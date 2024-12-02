@@ -268,6 +268,11 @@ protected:
     }
     TArray<FSTRCollision> GetCollisions(FString InType)
     {
+        if (GetCollisionData())
+        {
+            return {};
+        }
+        
         return GetCollisionData()->GetCollisions(InType, m_currentSprite, GetValue("200"), GetValue("201"), m_facing);
     }
 

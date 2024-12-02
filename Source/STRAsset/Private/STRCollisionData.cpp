@@ -121,19 +121,19 @@ TArray<FSTRCollision> USTRCollisionData::GetCollisions(FString InType, FString I
             continue;
         }
 
-        int32 X = InPositionX;
+        int32 x = InPositionX;
 
         if (InFacing > 0)
         {
-            X += collision.X;
+            x += collision.X;
         }
         else
         {
-            X -= collision.X;
-            X -= collision.Width;
+            x -= collision.X;
+            x -= collision.Width;
         }
 
-        results.Add({collision.Type, X, InPositionY + collision.Y, collision.Width, collision.Height});
+        results.Add({collision.Type, x, InPositionY + collision.Y, collision.Width, collision.Height});
     }
     
     return results;
